@@ -8,7 +8,7 @@ async function route(){
  const {data:{session}}=await supabase.auth.getSession();
  if(!session)return false;
  try{
-  const r=await fetch(cfg.api+"/workforce-session-context",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":cfg.key},body:JSON.stringify({requested_portal_code:"owner_operator"})});
+  const r=await fetch(cfg.api+"/dot-session-context",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":cfg.key},body:JSON.stringify({requested_portal_code:"owner_operator"})});
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.error)throw new Error(j.error||"Owner-Operator access is not available.");
   const next=new URLSearchParams(location.search).get("next")||"/dashboard.html";

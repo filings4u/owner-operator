@@ -95,7 +95,7 @@ async function guard(){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){location.replace("/login.html?next="+encodeURIComponent(location.pathname+location.search));return false}
   state.session=session;
-  const ctx=await edge("workforce-session-context",{requested_portal_code:"owner_operator"});
+  const ctx=await edge("dot-session-context",{requested_portal_code:"owner_operator"});
   const w=ctx.workspace||ctx.context||ctx;
   const portal=String(w.portal||ctx.portal_code||ctx.access?.portal_code||"");
   if(portal!=="owner_operator" && String(w.owner_operator_id||"")==="") throw new Error("This account is not authorized for the Owner-Operator portal.");
