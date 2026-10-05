@@ -40,7 +40,17 @@ form.onsubmit=async e=>{
     token='';try{window.turnstile.reset(widget)}catch{};sync();return;
   }
   try{
-    await verify(data.session);
+    const access=await verify(data.session);
+    try{
+      localStorage.setItem('s4u_idle_last:'+location.hostname,String(Date.now()));
+      const code=C.portalCode||'owner_operator';
+      if(access?.requires_workspace_selection&&Array.isArray(access.workspaces)&&access.workspaces.length){
+        const rank=w=>{const pc=String(w?.plan_code||'').toLowerCase();if(pc.endsWith('_complete'))return 30;if(pc.endsWith('_plus'))return 20;if(pc.endsWith('_essential'))return 10;return 0};
+        const chosen=[...access.workspaces].sort((a,b)=>rank(b)-rank(a))[0];
+        if(chosen?.membership_id)localStorage.setItem('s4u_'+code+'_membership',chosen.membership_id);
+        if(chosen?.subscription_id)localStorage.setItem('s4u_'+code+'_subscription',chosen.subscription_id);
+      }
+    }catch{}
     const next=new URLSearchParams(location.search).get('next');
     location.replace(next&&next.startsWith('/')?next:C.home);
   }catch(err){

@@ -14,8 +14,19 @@ function schedule(){clearTimeout(timer);const age=Date.now()-safeLast();if(age>=
 function bindActivity(){['pointerdown','keydown','touchstart','scroll'].forEach(ev=>addEventListener(ev,()=>{if(!warnOpen)setLast()},{passive:true}));addEventListener('storage',e=>{if(e.key===KEY_LAST){last=safeLast();hideWarn();schedule()}})}
 async function guard(){
   if(!sb||!URL||!KEY||!CODE){location.replace('/login.html?reason=config');return}
-  const {data:{session},error}=await sb.auth.getSession();
+  let {data:{session},error}=await sb.auth.getSession();
   if(error||!session){location.replace('/login.html?reason=session');return}
+  const signInMs=Date.parse(session.user?.last_sign_in_at||'')||0;
+  const storedLast=safeLast();
+  if(!storedLast||storedLast<signInMs){last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{}}
+
+  const refreshSession=async()=>{
+    const rr=await sb.auth.refreshSession();
+    if(rr.error||!rr.data?.session)return false;
+    session=rr.data.session;
+    last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{}
+    return true;
+  };
 
   const requestContext=async()=>{
     const membership=localStorage.getItem('s4u_'+CODE+'_membership')||'';
@@ -25,7 +36,16 @@ async function guard(){
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':KEY},
       body:JSON.stringify(window.S4UWithPortal({portal_code:CODE,membership_id:membership||undefined,subscription_id:subscription||undefined,page:P.replace('.html','')}))
     });
-    const d=await r.json().catch(()=>({}));
+    let d=await r.json().catch(()=>({}));
+    if(r.status===401&&await refreshSession()){
+      const retry=await fetch(URL+'/functions/v1/owner-operator-session',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':KEY},
+        body:JSON.stringify(window.S4UWithPortal({portal_code:CODE,membership_id:membership||undefined,subscription_id:subscription||undefined,page:P.replace('.html','')}))
+      });
+      d=await retry.json().catch(()=>({}));
+      return {r:retry,d};
+    }
     return {r,d};
   };
 
@@ -63,6 +83,7 @@ async function guard(){
     return;
   }
   last=safeLast();
+  if(!last||last<(Date.parse(session.user?.last_sign_in_at||'')||0)){last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{}}
   if(Date.now()-last>=IDLE){await logout();return}
   try{localStorage.setItem(KEY_LAST,String(last))}catch{}
   bindActivity();schedule();document.documentElement.classList.remove('s4u-auth-pending');window.dispatchEvent(new CustomEvent('s4u:dot-authenticated',{detail:d}))
