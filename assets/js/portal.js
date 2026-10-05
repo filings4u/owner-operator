@@ -612,7 +612,7 @@ async function loadSupport(){
     <div class="field full"><div id="support-ticket-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" type="submit">Create Support Ticket</button></div>
    </form>
   </div>
-  <div class="card support-contact-card"><h2>Need immediate help?</h2><p><strong>Email</strong><br><a href="mailto:owner-operator@screenings4u.com">owner-operator@screenings4u.com</a></p><p><strong>Phone</strong><br><a href="tel:7732457009">(773) 245-7009</a></p><p class="fine-print">During required onboarding, Support and Sign out remain available even though the rest of the portal navigation is locked.</p></div>
+  <div class="card support-contact-card"><h2>Need immediate help?</h2><p><strong>Email</strong><br><a href="mailto:owner-operator@screenings4u.com">owner-operator@screenings4u.com</a></p><p><strong>Phone</strong><br><a href="tel:7732457009">(773) 245-7009</a></p>${state.onboarding&&!state.onboarding.completed?`<div class="actions support-back-actions"><a class="btn btn-secondary" href="/onboarding.html">Back to Onboarding</a></div>`:''}<p class="fine-print">During required onboarding, only Onboarding, Support, and Sign out are available. The rest of the portal unlocks after onboarding is completed.</p></div>
  </div>`;
  const form=document.getElementById('support-ticket-form'),msg=document.getElementById('support-ticket-msg');
  form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);btn.disabled=true;msg.textContent='Creating support ticket…';msg.className='form-message';try{const out=await edge('workforce-support',{action:'create',subject:String(fd.get('subject')||''),category:String(fd.get('category')||'portal'),priority:String(fd.get('priority')||'normal'),message:String(fd.get('message')||''),portal_page:currentPage(),page_title:document.title,page_url:location.href});if(out?.error)throw new Error(out.error);msg.textContent='Support ticket '+(out?.ticket?.ticket_number||'created')+'. Our support team can now review your request.';msg.className='form-message success';form.reset()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
@@ -646,7 +646,7 @@ function syncActiveNav(){
   document.querySelectorAll('.side .nav a,.mobile-nav-links a').forEach(a=>{
     const href=(a.getAttribute('href')||'').split('?')[0].split('#')[0].replace(/^\//,'').toLowerCase();
     a.classList.toggle('active',href===page);
-    const allowed=!onboardingLocked||href==='support.html';
+    const allowed=!onboardingLocked||href==='onboarding.html'||href==='support.html';
     a.classList.toggle('onboarding-disabled',!allowed);
     if(!allowed){a.setAttribute('aria-disabled','true');a.setAttribute('tabindex','-1')}else{a.removeAttribute('aria-disabled');a.removeAttribute('tabindex')}
   });
@@ -696,7 +696,7 @@ function bindSpaNavigation(){
     const u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
     if(!/\.html$/i.test(u.pathname))return;
     const next=(u.pathname.split('/').pop()||'').toLowerCase();
-    if(state.onboarding&&!state.onboarding.completed&&a.closest('.side,.mobile-nav')&&next!=='support.html'){e.preventDefault();return}
+    if(state.onboarding&&!state.onboarding.completed&&a.closest('.side,.mobile-nav')&&!['onboarding.html','support.html'].includes(next)){e.preventDefault();return}
     e.preventDefault();navigatePortal(u.pathname+u.search+u.hash);
   });
   addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
