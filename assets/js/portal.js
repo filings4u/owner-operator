@@ -484,7 +484,8 @@ async function loadDashboard(){
 }
 
 async function loadProfile(){
- const d=await owner("profile"), o=d.owner||d.profile||{};
+ const [d,onboardingProfile]=await Promise.all([owner("profile"),onboardingProfileApi("status").catch(()=>null)]), o=d.owner||d.profile||{}, onboardingPrefill=onboardingProfile?.prefill||{};
+ const profileState=onboardingPrefill.state||o.state||o.metadata?.state||"";
  document.getElementById("page-content").innerHTML=pageHead("ACCOUNT","Company profile","View the locked company information associated with your Owner-Operator account.")+
  `<div class="card">
    <div class="readonly-profile-notice"><strong>Read-only account information</strong><span>Owner-Operator company information is locked after onboarding. To request a correction, contact Support.</span><a class="btn btn-secondary" href="/support.html">Contact Support</a></div>
@@ -495,7 +496,7 @@ async function loadProfile(){
      <div class="field"><label>MC number</label><input value="${esc(o.mc_number)}" readonly aria-readonly="true"></div>
      <div class="field"><label>Email</label><input type="email" value="${esc(o.email)}" readonly aria-readonly="true"></div>
      <div class="field"><label>Phone</label><input value="${esc(o.phone)}" readonly aria-readonly="true"></div>
-     <div class="field"><label>State</label><input value="${esc(o.state)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>State</label><input value="${esc(profileState)}" placeholder="Not on file" readonly aria-readonly="true"></div>
      <div class="field"><label>Vehicles</label><input value="${esc(o.vehicle_count||1)}" readonly aria-readonly="true"></div>
    </div>
  </div>`;
