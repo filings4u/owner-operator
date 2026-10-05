@@ -224,8 +224,8 @@ async function guard(){
   if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
   state.onboarding=boot.onboarding||null;
   state.clearinghouse=boot.clearinghouse||null;
-  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page)){history.replaceState({},'', '/onboarding.html');return true}
-  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){navigatePortal("/clearinghouse-setup.html",{replace:true});return false}
+  if(onboardingLocked() && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page)){history.replaceState({},'', '/onboarding.html');return true}
+  if(clearinghouseLocked() && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page)){navigatePortal("/clearinghouse-setup.html",{replace:true});return false}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false) throw new Error("This page is not included in your current Owner-Operator plan.");
   return true;
@@ -460,7 +460,7 @@ async function loadClearinghouseSetup(){
  <div class="card clearinghouse-checklist-card"><h2>Clearinghouse checklist</h2><ol class="setup-checklist"><li><strong>Register or log in as the employer/owner-operator.</strong><span>If you are registering, indicate that you are an owner-operator when the Clearinghouse asks.</span></li><li><strong>Open your Employer Dashboard.</strong><span>Under <em>My Dashboard</em>, go to <strong>Manage → C/TPAs</strong></span></li><li><strong>Search for Workforce DOT | screenings4u.</strong><span>Use the C/TPA search field and select our registered C/TPA listing.</span></li><li><strong>Click Designate.</strong><span>Add Workforce DOT | screenings4u to your designated C/TPAs.</span></li><li><strong>Authorize the required functions.</strong><span>Select <strong>Report Violations</strong>, <strong>Report RTD Information</strong>, and <strong>Conduct Queries</strong>.</span></li><li><strong>Click Save.</strong><span>The Clearinghouse sends the C/TPA a request to accept the designation.</span></li></ol></div>
  <form class="card clearinghouse-confirm" id="clearinghouse-confirm-form"><h2>Confirm your designation</h2><p>After saving the designation in the FMCSA Clearinghouse, complete this checklist. We will keep your portal confirmation on file while the Clearinghouse designation is accepted/verified.</p><label class="checkline"><input type="checkbox" name="designated" value="yes" required><span>I designated <strong>Workforce DOT | screenings4u</strong> as my C/TPA.</span></label><label class="checkline"><input type="checkbox" name="report_violations" value="yes" required><span>I authorized <strong>Report Violations</strong>.</span></label><label class="checkline"><input type="checkbox" name="report_rtd" value="yes" required><span>I authorized <strong>Report RTD Information</strong>.</span></label><label class="checkline"><input type="checkbox" name="conduct_queries" value="yes" required><span>I authorized <strong>Conduct Queries</strong>.</span></label><label class="checkline"><input type="checkbox" name="certify" value="yes" required><span>I certify that I completed and saved these selections in the FMCSA Clearinghouse.</span></label><div id="clearinghouse-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Confirm Clearinghouse Setup</button></div></form></div>`;
  const form=document.getElementById("clearinghouse-confirm-form"),msg=document.getElementById("clearinghouse-msg");
- form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);msg.textContent="Clearinghouse designation confirmed. Your dashboard is now unlocked.";msg.className="form-message success";navigatePortal("/dashboard.html",{replace:true})}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});
+ form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);state.clearinghouse={...(state.clearinghouse||{}),...saved,completed:true,designation:saved.designation||state.clearinghouse?.designation||null};state.onboarding={...(state.onboarding||{}),completed:true};syncActiveNav();msg.textContent="Clearinghouse designation confirmed. Your dashboard and portal navigation are now unlocked.";msg.className="form-message success";await navigatePortal("/dashboard.html",{replace:true})}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});
 }
 
 async function loadDashboard(){
@@ -621,7 +621,7 @@ async function loadSupport(){
     <div class="field full"><div id="support-ticket-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" type="submit">Create Support Ticket</button></div>
    </form>
   </div>
-  <div class="card support-contact-card"><h2>Need immediate help?</h2><p><strong>Email</strong><br><a href="mailto:owner-operator@screenings4u.com">owner-operator@screenings4u.com</a></p><p><strong>Phone</strong><br><a href="tel:7732457009">(773) 245-7009</a></p>${state.onboarding&&!state.onboarding.completed?`<div class="actions support-back-actions"><a class="btn btn-secondary" href="/onboarding.html">Back to Onboarding</a></div>`:''}<p class="fine-print">During required onboarding, only Onboarding, Support, and Sign out are available. The rest of the portal unlocks after onboarding is completed.</p></div>
+  <div class="card support-contact-card"><h2>Need immediate help?</h2><p><strong>Email</strong><br><a href="mailto:owner-operator@screenings4u.com">owner-operator@screenings4u.com</a></p><p><strong>Phone</strong><br><a href="tel:7732457009">(773) 245-7009</a></p>${onboardingLocked()?`<div class="actions support-back-actions"><a class="btn btn-secondary" href="/onboarding.html">Back to Onboarding</a></div><p class="fine-print">During required onboarding, only Onboarding, Support, and Sign out are available.</p>`:`<p class="fine-print">Your Owner-Operator portal navigation is available. Use the sidebar to open your portal pages.</p>`}</div>
  </div>`;
  const form=document.getElementById('support-ticket-form'),msg=document.getElementById('support-ticket-msg');
  form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);btn.disabled=true;msg.textContent='Creating support ticket…';msg.className='form-message';try{const out=await edge('workforce-support',{action:'create',subject:String(fd.get('subject')||''),category:String(fd.get('category')||'portal'),priority:String(fd.get('priority')||'normal'),message:String(fd.get('message')||''),portal_page:currentPage(),page_title:document.title,page_url:location.href});if(out?.error)throw new Error(out.error);msg.textContent='Support ticket '+(out?.ticket?.ticket_number||'created')+'. Our support team can now review your request.';msg.className='form-message success';form.reset()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
@@ -635,7 +635,7 @@ const LOADERS={
   "billing.html":loadBilling,"notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
 };
 function warmPortalCache(){
-  if(state.onboarding && !state.onboarding.completed)return;
+  if(onboardingLocked())return;
   if(window.__S4U_OWNER_CACHE_WARMING__)return;
   window.__S4U_OWNER_CACHE_WARMING__=true;
   const run=async()=>{
@@ -649,14 +649,16 @@ function warmPortalCache(){
   if('requestIdleCallback' in window)requestIdleCallback(()=>run(),{timeout:250});else setTimeout(run,25);
 }
 function currentPage(){return (location.pathname.split("/").pop()||"dashboard.html").toLowerCase()}
+function onboardingLocked(){return !!(state.onboarding && !state.onboarding.completed && !state.clearinghouse?.completed)}
+function clearinghouseLocked(){return !!(!onboardingLocked() && state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed)}
 function syncActiveNav(){
   const page=currentPage();
-  const onboardingLocked=!!(state.onboarding && !state.onboarding.completed);
-  document.body.classList.toggle('onboarding-nav-locked',onboardingLocked);
+  const locked=onboardingLocked();
+  document.body.classList.toggle('onboarding-nav-locked',locked);
   document.querySelectorAll('.side .nav a,.mobile-nav-links a').forEach(a=>{
     const href=(a.getAttribute('href')||'').split('?')[0].split('#')[0].replace(/^\//,'').toLowerCase();
     a.classList.toggle('active',href===page);
-    const allowed=!onboardingLocked||href==='onboarding.html'||href==='support.html';
+    const allowed=!locked||href==='onboarding.html'||href==='support.html';
     a.classList.toggle('onboarding-disabled',!allowed);
     if(!allowed){a.setAttribute('aria-disabled','true');a.setAttribute('tabindex','-1')}else{a.removeAttribute('aria-disabled');a.removeAttribute('tabindex')}
   });
@@ -664,8 +666,8 @@ function syncActiveNav(){
   const chip=document.querySelector('.mobile-nav-current');if(chip)chip.textContent=current;
 }
 function allowedRoute(page){
-  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page))return '/onboarding.html';
-  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page))return '/clearinghouse-setup.html';
+  if(onboardingLocked() && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page))return '/onboarding.html';
+  if(clearinghouseLocked() && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page))return '/clearinghouse-setup.html';
   return null;
 }
 async function renderCurrentPage(){
@@ -706,12 +708,12 @@ function bindSpaNavigation(){
     const u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
     if(!/\.html$/i.test(u.pathname))return;
     const next=(u.pathname.split('/').pop()||'').toLowerCase();
-    if(state.onboarding&&!state.onboarding.completed&&a.closest('.side,.mobile-nav')&&!['onboarding.html','support.html'].includes(next)){e.preventDefault();return}
+    if(onboardingLocked()&&a.closest('.side,.mobile-nav')&&!['onboarding.html','support.html'].includes(next)){e.preventDefault();return}
     e.preventDefault();navigatePortal(u.pathname+u.search+u.hash);
   });
   addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
   document.addEventListener('pointerenter',e=>{
-    if(state.onboarding && !state.onboarding.completed)return;
+    if(onboardingLocked())return;
     const a=e.target.closest?.('a[href]');if(!a)return;
     const page=(new URL(a.href,location.href).pathname.split('/').pop()||'').toLowerCase();
     const map={"dashboard.html":"overview","profile.html":"profile","drivers.html":"drivers","programs.html":"programs","consortium.html":"consortium","testing.html":"testing","results.html":"results","compliance.html":"compliance","rtd.html":"rtd","documents.html":"documents","reports.html":"reports","billing.html":"billing","notifications.html":"notifications","audit-history.html":"audit"};
