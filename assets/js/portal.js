@@ -237,6 +237,10 @@ async function onboardingApi(action,extra={}){
   if(action==="complete_agreement") return edge("owner-operator-actions",{...payload,action:"complete_onboarding",page:"onboarding.html"});
   return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
 }
+
+async function onboardingProfileApi(action,extra={}){
+  return edge("owner-operator-onboarding-profile",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
+}
 async function clearinghouseApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
   if(action==="status") return edge("owner-operator-actions",{...payload,action:"clearinghouse_status",page:"clearinghouse-setup.html"});
@@ -245,7 +249,7 @@ async function clearinghouseApi(action,extra={}){
 }
 
 async function loadOnboarding(){
- let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
+ let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const profileState=await onboardingProfileApi("status").catch(()=>({prefill:{}}));const profilePrefill=profileState.prefill||{};const prefill={...(d.prefill||{}),...profilePrefill},agreement=d.agreement||null,root=document.getElementById("page-content");
  const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
  if(d.completed){
    const proof=d.preemployment_proof,testReq=d.test_request;
@@ -264,6 +268,27 @@ async function loadOnboarding(){
    <p>Services are administered under 49 CFR Part 40 and the rules of the DOT agency applicable to your operation, including 49 CFR Part 382 for FMCSA-regulated motor carriers. Enrollment becomes effective only after the Agreement is accepted and all required enrollment conditions are satisfied.</p>
    <div class="agreement-callout"><strong>Pre-employment requirement:</strong> Before active random-pool enrollment, an Owner-Operator must have a qualifying negative DOT pre-employment drug test on file. You may upload an official negative result dated within the last 30 days. If you do not have one, you must order and complete a DOT drug test.</div>
    <form id="agreement-form" class="agreement-form">
+    <section class="owner-profile-section"><h3>Owner-Operator information</h3><p class="fine-print">Complete this information before signing your consortium agreement.</p><div class="form-grid">
+     <div class="field"><label>First Name <span aria-hidden="true">*</span></label><input name="first_name" value="${esc(prefill.first_name||'')}" required autocomplete="given-name"></div>
+     <div class="field"><label>Last Name <span aria-hidden="true">*</span></label><input name="last_name" value="${esc(prefill.last_name||'')}" required autocomplete="family-name"></div>
+     <div class="field"><label>USDOT Number <span aria-hidden="true">*</span></label><input name="dot_number" value="${esc(prefill.dot_number||'')}" required inputmode="numeric"></div>
+     <div class="field"><label>Operation <span aria-hidden="true">*</span></label><select name="operation_scope" id="operation-scope" required><option value="">Select...</option><option value="interstate" ${String(prefill.operation_scope||'').toLowerCase()==='interstate'?'selected':''}>Interstate</option><option value="intrastate" ${String(prefill.operation_scope||'').toLowerCase()==='intrastate'?'selected':''}>Intrastate</option></select></div>
+     <div class="field" id="mc-number-field"><label>MC Number <span id="mc-required-mark" aria-hidden="true"></span></label><input name="mc_number" value="${esc(prefill.mc_number||'')}"><small id="mc-help">Required for interstate operations; optional for intrastate operations.</small></div>
+     <div class="field"><label>Are you the Owner or Driver? <span aria-hidden="true">*</span></label><select name="role_capacity" id="role-capacity" required><option value="">Select...</option><option value="owner" ${String(prefill.role_capacity||'')==='owner'?'selected':''}>Owner (I employ a driver)</option><option value="driver" ${String(prefill.role_capacity||'')==='driver'?'selected':''}>Driver (I am not the owner)</option><option value="owner_driver" ${String(prefill.role_capacity||'')==='owner_driver'?'selected':''}>Owner & Driver</option></select></div>
+    </div>
+    <div id="self-driver-fields" class="conditional-fields"><h4>Your driver information</h4><div class="form-grid">
+     <div class="field"><label>CDL Number <span aria-hidden="true">*</span></label><input name="cdl_number" value="${esc(prefill.cdl_number||'')}"></div>
+     <div class="field"><label>CDL State <span aria-hidden="true">*</span></label><input name="cdl_state" maxlength="2" value="${esc(prefill.cdl_state||'')}" placeholder="IL"></div>
+     <div class="field"><label>Date of Birth <span aria-hidden="true">*</span></label><input type="date" name="birthdate" value="${esc(prefill.birthdate||'')}"></div>
+    </div></div>
+    <div id="employee-driver-fields" class="conditional-fields"><h4>Driver information</h4><p class="fine-print">Add the driver who will be enrolled in the DOT program.</p><div class="form-grid">
+     <div class="field"><label>Driver First Name <span aria-hidden="true">*</span></label><input name="driver_first_name" value="${esc(prefill.driver_first_name||'')}"></div>
+     <div class="field"><label>Driver Last Name <span aria-hidden="true">*</span></label><input name="driver_last_name" value="${esc(prefill.driver_last_name||'')}"></div>
+     <div class="field"><label>CDL Number <span aria-hidden="true">*</span></label><input name="driver_cdl_number" value="${esc(prefill.driver_cdl_number||'')}"></div>
+     <div class="field"><label>CDL State <span aria-hidden="true">*</span></label><input name="driver_cdl_state" maxlength="2" value="${esc(prefill.driver_cdl_state||'')}" placeholder="IL"></div>
+     <div class="field"><label>Date of Birth <span aria-hidden="true">*</span></label><input type="date" name="driver_birthdate" value="${esc(prefill.driver_birthdate||'')}"></div>
+    </div></div>
+    </section>
     <section><h3>Company & regulatory program</h3><div class="form-grid">
      <div class="field full"><label>Company legal name</label><input name="company_name" value="${company}" required></div>
      <div class="field full"><label>DOT industry / agency</label><div class="agency-grid">
@@ -310,8 +335,16 @@ async function loadOnboarding(){
  root.innerHTML=pageHead("REQUIRED ONBOARDING","Owner-Operator onboarding","Complete both required steps before using the rest of the Owner-Operator portal.")+`<div class="onboarding-progress"><div class="${agreementDone?'done':'active'}"><span>1</span><strong>Consortium Agreement</strong></div><div class="${preemploymentDone?'done':agreementDone?'active':''}"><span>2</span><strong>Pre-employment Test</strong></div></div><div class="agreement-wrap">${agreementSection}${agreementDone?proofSection:''}</div>`;
  if(!agreementDone){
    const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
+   const op=form.elements.operation_scope,role=form.elements.role_capacity,mc=form.elements.mc_number,selfFields=document.getElementById('self-driver-fields'),employeeFields=document.getElementById('employee-driver-fields'),mcMark=document.getElementById('mc-required-mark');
+   const syncProfileFields=()=>{
+     const interstate=op.value==='interstate';mc.required=interstate;mcMark.textContent=interstate?'*':'';
+     const v=role.value;selfFields.style.display=(v==='driver'||v==='owner_driver')?'block':'none';employeeFields.style.display=v==='owner'?'block':'none';
+     ['cdl_number','cdl_state','birthdate'].forEach(n=>form.elements[n].required=(v==='driver'||v==='owner_driver'));
+     ['driver_first_name','driver_last_name','driver_cdl_number','driver_cdl_state','driver_birthdate'].forEach(n=>form.elements[n].required=v==='owner');
+   };
+   op.addEventListener('change',syncProfileFields);role.addEventListener('change',syncProfileFields);syncProfileFields();
    form.querySelectorAll('input[name="industry_code"]').forEach(el=>el.addEventListener('change',()=>{document.getElementById('other-industry-field').style.display=el.value==='OTHER'&&el.checked?'block':'none'}));
-   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';location.href='/onboarding.html?step=preemployment#preemployment'}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';const profile={first_name:agreement.first_name,last_name:agreement.last_name,dot_number:agreement.dot_number,operation_scope:agreement.operation_scope,mc_number:agreement.mc_number,role_capacity:agreement.role_capacity,cdl_number:agreement.cdl_number,cdl_state:agreement.cdl_state,birthdate:agreement.birthdate,driver_first_name:agreement.driver_first_name,driver_last_name:agreement.driver_last_name,driver_cdl_number:agreement.driver_cdl_number,driver_cdl_state:agreement.driver_cdl_state,driver_birthdate:agreement.driver_birthdate};try{const profileSaved=await onboardingProfileApi('save',{profile});if(profileSaved?.error)throw new Error(profileSaved.error);const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';location.href='/onboarding.html?step=preemployment#preemployment'}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
  } else if(!preemploymentDone){
    const form=document.getElementById('proof-form');
    form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),650)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
