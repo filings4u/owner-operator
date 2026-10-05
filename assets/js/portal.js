@@ -2,9 +2,10 @@
 (function(){
 const cfg=window.S4U;
 if(!cfg) throw new Error("Portal configuration is missing.");
-const supabase=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const supabase=window.S4UGetSupabaseClient();
 
 const NAV=[
+  ["onboarding.html","✓","Getting Started"],
   ["dashboard.html","⌂","Dashboard"],
   ["profile.html","◎","Company Profile"],
   ["drivers.html","♟","Driver"],
@@ -65,30 +66,99 @@ function status(v){const s=String(v||"").toLowerCase();const cls=["active","comp
 
 function renderShell(){
   const path=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
-  const nav=NAV.map(([href,icon,label])=>`<a href="/${href}" class="${path===href?"active":""}"><span class="icon">${icon}</span>${label}</a>`).join("");
+  const nav=NAV.map(([href,icon,label])=>`<a href="/${href}" class="${path===href?"active":""}"><span class="ico">${icon}</span><span>${label}</span></a>`).join("");
   const shell=document.getElementById("portal-shell");
   if(!shell)return;
+  shell.className="";
   shell.innerHTML=`
-    <aside class="sidebar" id="sidebar">
-      <div class="brand"><div class="brand-mark">S4U</div><div>Owner-Operator</div></div>
-      <div class="nav-label">DOT Workspace</div>
-      <nav class="nav">${nav}</nav>
-    </aside>
-    <main class="main">
-      <header class="topbar">
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="btn btn-secondary mobile-menu" id="menu-btn" type="button">☰</button>
-          <div class="topbar-title" id="org-name">Owner-Operator Portal</div>
+    <div class="app">
+      <aside class="side" id="side">
+        <div class="brand"><img src="/images/logo.png" alt="workforce DOT Owner-Operator"></div>
+        <nav class="nav">
+          <div class="nav-title">Owner-Operator DOT Workspace</div>
+          ${nav}
+        </nav>
+        <div class="side-foot">
+          <div class="side-foot-label">Portal</div>
+          <div class="side-foot-domain">owner-operator.screenings4u.com</div>
         </div>
-        <div class="topbar-actions">
-          <a class="btn btn-secondary" href="https://dot.screenings4u.com/resources.html" target="_blank" rel="noopener">Resources</a>
-          <button class="btn btn-secondary" id="signout-btn" type="button">Sign out</button>
+      </aside>
+      <main class="main">
+        <header class="top">
+          <div class="top-left">
+            <button class="menu" id="menu" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobileNav">
+              <span class="menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+            <div class="top-context">
+              <span class="top-eyebrow">workforce DOT Owner-Operator</span>
+              <span class="crumb" id="org-name">Owner-Operator Portal</span>
+            </div>
+          </div>
+          <div class="top-right">
+            <div class="portal-clock" aria-label="Current date and time">
+              <span id="portalClockDate" class="portal-clock-date"></span>
+              <strong id="portalClockTime" class="portal-clock-time"></strong>
+            </div>
+            <div class="font-sizer" aria-label="Text size controls">
+              <button type="button" id="fontDown" aria-label="Decrease text size">A−</button>
+              <button type="button" id="fontReset" class="font-reset">Default</button>
+              <button type="button" id="fontUp" aria-label="Increase text size">A+</button>
+            </div>
+            <a class="top-support" href="/support.html">Support</a>
+            <button class="signout" id="signout-btn" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <div class="mobile-nav" id="mobileNav" aria-hidden="true">
+          <div class="mobile-nav-inner">
+            <div class="mobile-nav-head">
+              <div><span>workforce DOT</span><strong>Owner-Operator Workspace</strong></div>
+              <span class="mobile-nav-current">${(NAV.find(x=>x[0]===path)||[])[2]||"Portal"}</span>
+            </div>
+            <nav class="mobile-nav-links">${nav}</nav>
+            <div class="mobile-nav-foot"><span>Owner-Operator Portal</span><small>owner-operator.screenings4u.com</small></div>
+          </div>
         </div>
-      </header>
-      <div class="content" id="page-content"></div>
-    </main>`;
-  document.getElementById("menu-btn")?.addEventListener("click",()=>document.getElementById("sidebar")?.classList.toggle("open"));
-  document.getElementById("signout-btn")?.addEventListener("click",async()=>{await supabase.auth.signOut();location.href="/login.html"});
+
+        <div class="content" id="page-content"></div>
+      </main>
+    </div>`;
+
+  const FONT_KEY='s4u_owner_operator_font_size', FONT_DEFAULT=14, FONT_MIN=12, FONT_MAX=18;
+  const applyFont=n=>{
+    const v=Math.min(FONT_MAX,Math.max(FONT_MIN,Number(n)||FONT_DEFAULT));
+    document.documentElement.style.setProperty('--portal-font-root',v+'px');
+    localStorage.setItem(FONT_KEY,String(v));
+    const el=document.getElementById('fontReset'); if(el)el.textContent=v===FONT_DEFAULT?'Default':String(v);
+    return v;
+  };
+  let fs=applyFont(Number(localStorage.getItem(FONT_KEY))||FONT_DEFAULT);
+  document.getElementById('fontDown')?.addEventListener('click',()=>{fs=applyFont(fs-1)});
+  document.getElementById('fontUp')?.addEventListener('click',()=>{fs=applyFont(fs+1)});
+  document.getElementById('fontReset')?.addEventListener('click',()=>{fs=applyFont(FONT_DEFAULT)});
+
+  const updateClock=()=>{
+    const d=document.getElementById('portalClockDate'),t=document.getElementById('portalClockTime');
+    if(!d||!t)return;
+    const now=new Date();
+    d.textContent=new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}).format(now);
+    t.textContent=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true}).format(now);
+  };
+  updateClock(); clearInterval(window.__s4uOwnerClock); window.__s4uOwnerClock=setInterval(updateClock,1000);
+
+  const menu=document.getElementById('menu'),mobile=document.getElementById('mobileNav');
+  const closeMenu=()=>{menu?.classList.remove('open');menu?.setAttribute('aria-expanded','false');mobile?.classList.remove('open');mobile?.setAttribute('aria-hidden','true');document.body.classList.remove('mobile-nav-open')};
+  menu?.addEventListener('click',()=>{
+    const open=!mobile?.classList.contains('open');
+    if(open){menu.classList.add('open');menu.setAttribute('aria-expanded','true');mobile.classList.add('open');mobile.setAttribute('aria-hidden','false');document.body.classList.add('mobile-nav-open')}
+    else closeMenu();
+  });
+  mobile?.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
+
+  document.getElementById("signout-btn")?.addEventListener("click",async()=>{
+    try{await supabase.auth.signOut({scope:'local'})}catch{}
+    location.replace("/login.html");
+  });
 }
 
 async function guard(){
@@ -105,6 +175,9 @@ async function guard(){
   const org=document.getElementById("org-name");
   if(org)org.textContent=w.organization_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
   const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
+  const onboarding=await onboardingApi("status");
+  state.onboarding=onboarding;
+  if(!onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false){
     throw new Error("This page is not included in your current Owner-Operator plan.");
@@ -126,6 +199,123 @@ function errorView(e){
 
 async function owner(action,extra={}){return edge("workforce-owner-portal",{action,...extra})}
 async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
+async function onboardingApi(action,extra={}){return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra})}
+
+async function loadOnboarding(){
+ const d=state.onboarding||await onboardingApi("status"),prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
+ const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
+ if(d.completed){
+   const proof=d.preemployment_proof,testReq=d.test_request;
+   root.innerHTML=pageHead("GETTING STARTED","Owner-Operator onboarding completed","Your consortium agreement and pre-employment testing requirement are on file. You can continue into the portal.")+`
+   <div class="card agreement-complete"><div class="status">Completed</div><h2>${esc(agreement?.company_name||prefill.company_name||"Owner-Operator")}</h2><p><strong>Agreement:</strong> ${agreementDone?"Signed":"Pending"}</p><p><strong>Pre-employment requirement:</strong> ${proof?"Official negative result uploaded — pending verification":testReq?"DOT 5-panel test requested — scheduling pending":"Complete"}</p>${agreement?`<p><strong>Signed:</strong> ${fmt(agreement.signed_at)}</p>`:""}<div class="actions"><a class="btn btn-primary" href="/dashboard.html">Continue to Dashboard</a></div></div>`;
+   return;
+ }
+ const company=esc(prefill.company_name||""),authorized=esc(prefill.authorized_name||""),industry=String(prefill.industry_code||"FMCSA").toUpperCase();
+ const checked=v=>industry===v?'checked':'';
+ const agreementSection=agreementDone?`
+  <div class="card onboarding-step complete-step"><div class="status">Agreement complete</div><h2>Consortium Letter of Agreement</h2><p>Your signed agreement is on file${agreement?.signed_at?` from ${fmt(agreement.signed_at)}`:""}.</p></div>`:`
+  <div class="agreement-doc card" id="agreement-step">
+   <div class="agreement-brand"><img src="/images/logo.png" alt="Workforce DOT"><div><strong>Workforce DOT, LLC</strong><span>A subsidiary of screenings4u, LLC</span><span>8537 S Pulaski Rd · Chicago, IL 60652</span><span>Ph: 773-245-7009 · Fax: 773-850-8094</span></div></div>
+   <h2>Consortium Letter of Agreement</h2>
+   <p>This Letter of Agreement is between the company identified below and <strong>Workforce DOT, LLC</strong>, a subsidiary of <strong>screenings4u, LLC</strong>. Workforce DOT, LLC administers the workforce DOT drug and alcohol testing program and related consortium services.</p>
+   <p>Services are administered under 49 CFR Part 40 and the rules of the DOT agency applicable to your operation, including 49 CFR Part 382 for FMCSA-regulated motor carriers. Enrollment becomes effective only after the Agreement is accepted and all required enrollment conditions are satisfied.</p>
+   <div class="agreement-callout"><strong>Pre-employment requirement:</strong> Before active random-pool enrollment, an Owner-Operator must have a qualifying negative DOT pre-employment drug test on file. You may upload an official negative result dated within the last 30 days. If you do not have one, you must order and complete a DOT drug test.</div>
+   <form id="agreement-form" class="agreement-form">
+    <section><h3>Company & regulatory program</h3><div class="form-grid">
+     <div class="field full"><label>Company legal name</label><input name="company_name" value="${company}" required></div>
+     <div class="field full"><label>DOT industry / agency</label><div class="agency-grid">
+      ${['FMCSA','USCG','FRA','FAA','FTA','PHMSA'].map(v=>`<label class="check-card"><input type="radio" name="industry_code" value="${v}" ${checked(v)} required><span>${v}</span></label>`).join('')}
+      <label class="check-card"><input type="radio" name="industry_code" value="OTHER" ${checked('OTHER')} required><span>Other</span></label>
+     </div></div>
+     <div class="field full" id="other-industry-field" style="display:${industry==='OTHER'?'block':'none'}"><label>Other industry</label><input name="other_industry"></div>
+    </div></section>
+    <section><h3>Services provided</h3><ul class="agreement-list"><li>Random database and roster management</li><li>Random selection program administration</li><li>Testing arrangements through qualified collection sites and laboratories</li><li>MRO review and verification where applicable</li><li>Program certificates and statistical/MIS reporting support</li><li>Administrative support for DOT audits and compliance records</li></ul>
+    <p>Additional services—including pre-employment, post-accident, reasonable-suspicion, return-to-duty/follow-up testing, mobile collections, training, DOT physicals, policy services and other compliance services—may be purchased separately unless specifically included in your active plan.</p></section>
+    <section class="initial-section"><h3>Required acknowledgments</h3>
+     <div class="initial-row"><p>Your company will be enrolled in the workforce DOT consortium/random testing program applicable to the selected agency.</p><label>Initials<input name="initials_consortium" maxlength="6" required></label></div>
+     <div class="initial-row"><p>Each enrolled driver or safety-sensitive employee must satisfy applicable pre-employment testing requirements before active enrollment.</p><label>Initials<input name="initials_preemployment" maxlength="6" required></label></div>
+     <div class="initial-row"><p>You must review and confirm your active roster when requested. Workforce DOT may rely on the most recently verified roster if an updated roster is not timely provided.</p><label>Initials<input name="initials_quarterly_list" maxlength="6" required></label></div>
+     <div class="initial-row"><p>You certify that roster information submitted to Workforce DOT is accurate and complete. Knowingly submitting false or misleading eligibility information may result in removal from the consortium and regulatory consequences.</p><label>Initials<input name="initials_roster_accuracy" maxlength="6" required></label></div>
+     <div class="initial-row"><p>You are responsible for notifying drivers of required testing, promptly reporting unavailability or refusals, and taking required action after positive or refusal results.</p><label>Initials<input name="initials_testing_duties" maxlength="6" required></label></div>
+    </section>
+    <section><h3>Program term & billing</h3><p>This Agreement is valid for one year from the signing date. Portal access and consortium administration are tied to an active annual Owner-Operator subscription. The subscription renews annually according to your billing terms unless canceled before renewal. Termination or nonpayment may suspend portal access and consortium participation, subject to applicable record-retention and regulatory obligations.</p>
+    <div class="price-table"><div><strong>Basic Compliance</strong><span>$74.95 / year</span></div><div><strong>Consortium + Drug Test</strong><span>$125.95 / year</span></div><div><strong>Complete Compliance</strong><span>$149.95 / year</span></div></div>
+    <p class="fine-print">Additional services are billed at the then-current Workforce DOT catalog rate unless included in the active plan.</p></section>
+    <section><h3>Electronic signature</h3><div class="form-grid">
+     <div class="field"><label>Authorized name</label><input name="authorized_name" value="${authorized}" required></div>
+     <div class="field"><label>Title / capacity</label><input name="authorized_title" placeholder="Owner / Authorized Representative"></div>
+     <div class="field full"><label>Electronic signature</label><input name="electronic_signature" required placeholder="Type your full legal name"><small>Typing your name constitutes your electronic signature.</small></div>
+     <div class="field full"><label class="agreement-consent"><input type="checkbox" name="accepted" value="yes" required><span>I have read this Letter of Agreement, the current Owner-Operator plan pricing, and the required acknowledgments above. I agree to be bound by this Agreement and certify that I am authorized to sign for the company.</span></label></div>
+     <div class="field full"><div id="agreement-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" id="agreement-submit" type="submit">Accept Agreement & Continue</button></div>
+    </div></section>
+   </form>
+  </div>`;
+ const proofSection=preemploymentDone?`
+  <div class="card onboarding-step complete-step" id="preemployment"><div class="status">Requirement submitted</div><h2>Pre-employment drug test</h2><p>${d.preemployment_proof?"Your official negative result has been uploaded and is pending verification.":"Your included DOT 5-panel drug test request has been submitted for scheduling."}</p><div class="actions"><a class="btn btn-primary" href="/dashboard.html">Continue to Dashboard</a></div></div>`:`
+  <div class="card onboarding-step" id="preemployment">
+   <div class="step-kicker">STEP 2 · REQUIRED</div><h2>Pre-employment negative drug test</h2>
+   <p>To complete Owner-Operator onboarding, provide an official negative DOT drug test result dated within the last 30 days, or order a new DOT 5-panel urine drug test.</p>
+   <div class="choice-grid">
+    <div class="choice-card"><h3>I have an official negative result</h3><p>Upload a PDF, PNG, or JPEG. The result must be dated within the last 30 days.</p>
+      <form id="proof-form"><div class="field"><label>Test date</label><input type="date" name="test_date" required></div><div class="field"><label>Official result file</label><input type="file" name="proof_file" accept="application/pdf,image/png,image/jpeg" required></div><label class="agreement-consent"><input type="checkbox" name="certified" required><span>I certify this is an official copy showing a negative DOT drug test result for me.</span></label><div id="proof-msg" class="form-message"></div><button class="btn btn-primary" type="submit">Upload Official Result</button></form>
+    </div>
+    <div class="choice-card"><h3>I need to take a drug test</h3><p>${d.test_included?`Your <strong>${esc(prefill.plan_name||"current plan")}</strong> includes one pre-employment DOT drug test. Complete the order form and we will use your current or future location to schedule the closest available collection site.`:`A pre-employment drug test is not included in your current plan. Purchase the DOT 5-panel test first, then return here to continue onboarding.`}</p>
+      <a class="btn ${d.test_included?'btn-primary':'btn-secondary'}" href="${d.test_included?'/order-drug-test.html':esc(d.purchase_url||'/checkout.html?service=dot_5_panel_urine')}">${d.test_included?'Order Included Drug Test':'Purchase DOT Drug Test — $59.95'}</a>
+    </div>
+   </div>
+  </div>`;
+ root.innerHTML=pageHead("REQUIRED ONBOARDING","Owner-Operator onboarding","Complete both required steps before using the rest of the Owner-Operator portal.")+`<div class="onboarding-progress"><div class="${agreementDone?'done':'active'}"><span>1</span><strong>Consortium Agreement</strong></div><div class="${preemploymentDone?'done':agreementDone?'active':''}"><span>2</span><strong>Pre-employment Test</strong></div></div><div class="agreement-wrap">${agreementSection}${agreementDone?proofSection:''}</div>`;
+ if(!agreementDone){
+   const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
+   form.querySelectorAll('input[name="industry_code"]').forEach(el=>el.addEventListener('change',()=>{document.getElementById('other-industry-field').style.display=el.value==='OTHER'&&el.checked?'block':'none'}));
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{await onboardingApi('complete_agreement',{agreement});location.replace('/onboarding.html#preemployment')}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error';btn.disabled=false}});
+ } else if(!preemploymentDone){
+   const form=document.getElementById('proof-form');
+   form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),650)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
+ }
+}
+
+async function loadDrugTestOrder(){
+ const d=state.onboarding||await onboardingApi('status'),p=d.prefill||{},root=document.getElementById('page-content');
+ if(d.preemployment_complete){location.replace('/onboarding.html');return}
+ if(!d.agreement_completed){location.replace('/onboarding.html');return}
+ const paidOrder=new URLSearchParams(location.search).get('order_id')||localStorage.getItem('s4u_owner_operator_paid_test_order')||'';
+ if(!d.test_included&&!paidOrder){location.replace(d.purchase_url||'/checkout.html?service=dot_5_panel_urine');return}
+ root.innerHTML=pageHead(d.test_included?'INCLUDED TEST':'PAID TEST','Order your DOT 5-panel drug test','Order your DOT 5-panel drug test','Provide the information below. We will use your current or future location to identify the closest available collection site.')+`
+ <div class="card order-test-card"><div class="agreement-callout"><strong>${d.test_included?'Included with '+esc(p.plan_name||'your plan'):'Paid DOT 5-panel drug test'}.</strong> ${d.test_included?'There is no additional charge for this included pre-employment test request.':'Your portal purchase has been received. Complete this form so Workforce DOT can schedule the closest available collection site.'}</div>
+ <form id="drug-test-order-form"><div class="form-grid">
+  <div class="field"><label>First name</label><input name="first_name" value="${esc(p.first_name||'')}" required></div><div class="field"><label>Last name</label><input name="last_name" value="${esc(p.last_name||'')}" required></div>
+  <div class="field"><label>USDOT Number</label><input name="dot_number" value="${esc(p.dot_number||'')}" required></div><div class="field"><label>MC Number <span class="optional">Optional</span></label><input name="mc_number" value="${esc(p.mc_number||'')}"></div>
+  <div class="field"><label>CDL Number</label><input name="cdl_number" value="${esc(p.cdl_number||'')}" required></div><div class="field"><label>CDL State</label><input name="cdl_state" value="${esc(p.cdl_state||'')}" maxlength="2" required></div>
+  <div class="field"><label>Birthdate</label><input type="date" name="birthdate" value="${esc(p.birthdate||'')}" required></div>
+  <div class="field full"><h3>Address on your CDL</h3></div><div class="field full"><label>Street address</label><input name="cdl_address_line1" value="${esc(p.cdl_address_line1||'')}" required></div><div class="field full"><label>Address line 2 <span class="optional">Optional</span></label><input name="cdl_address_line2" value="${esc(p.cdl_address_line2||'')}"></div><div class="field"><label>City</label><input name="cdl_city" value="${esc(p.cdl_city||'')}" required></div><div class="field"><label>State</label><input name="cdl_state_address" value="${esc(p.cdl_state_address||'')}" required></div><div class="field"><label>ZIP code</label><input name="cdl_postal_code" value="${esc(p.cdl_postal_code||'')}" required></div>
+  <div class="field full"><h3>Where are you now, or where will you be for testing?</h3><p class="field-help">Use the address where you are now or where you will be. We will use this location to schedule the closest available collection site.</p></div><div class="field full"><label>Street address</label><input name="current_address_line1" required></div><div class="field full"><label>Address line 2 <span class="optional">Optional</span></label><input name="current_address_line2"></div><div class="field"><label>City</label><input name="current_city" required></div><div class="field"><label>State</label><input name="current_state" required></div><div class="field"><label>ZIP code</label><input name="current_postal_code" required></div>
+  <div class="field full"><div id="drug-test-order-msg" class="form-message"></div><div class="actions"><a class="btn btn-secondary" href="/onboarding.html">Back</a><button class="btn btn-primary" type="submit">Submit Test Order</button></div></div>
+ </div></form></div>`;
+ document.getElementById('drug-test-order-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget,msg=document.getElementById('drug-test-order-msg'),btn=form.querySelector('button[type="submit"]');msg.textContent='Submitting your included test order…';msg.className='form-message';btn.disabled=true;try{const order=Object.fromEntries(new FormData(form).entries());await onboardingApi('create_test_order',{order,paid_order_id:paidOrder});msg.textContent='Your test request has been submitted. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),700)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error';btn.disabled=false}});
+}
+
+async function loadCheckout(){
+ const d=state.onboarding||await onboardingApi('status'),p=d.prefill||{},root=document.getElementById('page-content');
+ if(d.preemployment_complete){location.replace('/onboarding.html');return}
+ if(!d.agreement_completed){location.replace('/onboarding.html');return}
+ if(d.test_included){location.replace('/order-drug-test.html');return}
+ root.innerHTML=pageHead('SECURE CHECKOUT','Purchase your DOT 5-panel drug test','Complete payment securely inside your Owner-Operator portal. You will remain in the portal for the entire process.')+`
+ <div class="grid grid-2 checkout-portal-grid">
+  <div class="card"><div class="step-kicker">DOT PRE-EMPLOYMENT TEST</div><h2>DOT 5-Panel Urine Drug Test</h2><p>Required when you do not have an acceptable official negative DOT drug-test result dated within the last 30 days.</p><div class="price-line"><strong>$59.95</strong><span>one-time</span></div><ul class="agreement-list"><li>DOT-regulated 5-panel urine test</li><li>Collection-site scheduling support</li><li>Results linked to your Owner-Operator account</li><li>Secure portal workflow</li></ul><div class="agreement-callout"><strong>Seller:</strong> Workforce DOT, LLC<br><span>A subsidiary of screenings4u, LLC</span></div></div>
+  <div class="card"><h2>Secure payment</h2><p class="fine-print">Payment is processed securely by Stripe. Your card details are entered directly into Stripe's mounted payment form and are not stored by this portal.</p><div id="checkout-status" class="form-message">Loading secure payment form…</div><div id="portal-payment-element" class="stripe-mount"></div><div id="checkout-error" class="form-message error" hidden></div><button class="btn btn-primary" id="checkout-pay-btn" type="button" disabled>Pay $59.95</button><div class="actions"><a class="btn btn-secondary" href="/onboarding.html#preemployment">Back to Onboarding</a></div></div>
+ </div>`;
+ try{
+   if(typeof window.Stripe!=='function')throw new Error('Stripe.js did not load. Refresh the page and try again.');
+   const session=await edge('create-payment-intent',{surface:'owner_operator_portal',serviceId:'dot_5_panel_urine',customer:{firstName:p.first_name||'',lastName:p.last_name||'',email:''}});
+   if(!session.clientSecret||!session.stripePublishableKey)throw new Error('Secure payment configuration is unavailable.');
+   const stripe=window.Stripe(session.stripePublishableKey),elements=stripe.elements({clientSecret:session.clientSecret,appearance:{theme:'stripe',variables:{colorPrimary:'#ef6c00',colorText:'#173761',borderRadius:'10px'}}});
+   const payment=elements.create('payment',{layout:'tabs'});payment.mount('#portal-payment-element');
+   const statusEl=document.getElementById('checkout-status'),errEl=document.getElementById('checkout-error'),btn=document.getElementById('checkout-pay-btn');
+   statusEl.textContent='Secure payment powered by Stripe.';btn.disabled=false;
+   btn.addEventListener('click',async()=>{btn.disabled=true;errEl.hidden=true;statusEl.textContent='Processing payment…';const result=await stripe.confirmPayment({elements,confirmParams:{return_url:location.origin+'/checkout.html?payment=return&order_id='+encodeURIComponent(session.orderId)},redirect:'if_required'});if(result.error){errEl.textContent=result.error.message||'Payment could not be completed.';errEl.hidden=false;statusEl.textContent='Payment was not completed.';btn.disabled=false;return}const pi=result.paymentIntent;if(pi&&['succeeded','processing'].includes(pi.status)){localStorage.setItem('s4u_owner_operator_paid_test_order',session.orderId);statusEl.textContent=pi.status==='succeeded'?'Payment received. Continue to your test order.':'Payment is processing. You can continue once Stripe confirms it.';root.querySelector('.checkout-portal-grid').insertAdjacentHTML('afterend',`<div class="card agreement-complete" style="margin-top:18px"><div class="status">Payment received</div><h2>Continue inside your portal</h2><p>Your payment reference is <strong>${esc(session.orderNumber||session.orderId)}</strong>.</p><div class="actions"><a class="btn btn-primary" href="/order-drug-test.html?order_id=${encodeURIComponent(session.orderId)}">Continue to Test Order</a></div></div>`);btn.hidden=true}else{statusEl.textContent='Stripe is still confirming the payment.';btn.disabled=false}});
+ }catch(err){console.error(err);const el=document.getElementById('checkout-status');if(el){el.textContent=err.message||String(err);el.className='form-message error'}}
+}
 
 async function loadDashboard(){
  const d=await owner("overview");
@@ -284,7 +474,7 @@ async function initPage(){
    if(!await guard())return;
    const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
    const loaders={
-    "dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,"programs.html":loadPrograms,
+    "onboarding.html":loadOnboarding,"checkout.html":loadCheckout,"order-drug-test.html":loadDrugTestOrder,"dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,"programs.html":loadPrograms,
     "consortium.html":loadConsortium,"testing.html":loadTesting,"results.html":loadResults,"compliance.html":loadCompliance,
     "rtd.html":loadRTD,"documents.html":loadDocuments,"reports.html":loadReports,"billing.html":loadBilling,
     "notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport

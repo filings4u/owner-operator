@@ -1,0 +1,33 @@
+Owner-Operator Workflow Phase — Consortium Agreement + Pre-employment Test
+
+Legal/brand wording used:
+  Workforce DOT, LLC, a company owned by screenings4u, LLC.
+
+Required portal onboarding:
+1. Sign Consortium Letter of Agreement.
+2. Satisfy pre-employment test requirement by either:
+   a. Uploading an official negative DOT drug-test result dated within the last 30 days (PDF, PNG, JPG); or
+   b. Ordering a new DOT 5-panel urine test.
+3. If the current subscription includes a test (Plus or Complete), the portal opens order-drug-test.html and records an included test request.
+4. If the current subscription does not include a test (Basic), the portal routes the customer to screenings4u checkout for the $59.95 DOT 5-panel urine test.
+5. Submission of proof or an included test request completes the portal onboarding gate. Consortium enrollment remains separate and should not become active until the negative result is verified/completed.
+
+Included test order form fields:
+- First name
+- Last name
+- USDOT Number
+- MC Number (optional)
+- CDL Number
+- CDL State
+- Birthdate
+- CDL address (street, line 2, city, state, ZIP)
+- Current/future testing location (street, line 2, city, state, ZIP)
+
+Backend:
+  _backend/owner-operator-onboarding/index.ts
+
+Frontend:
+  onboarding.html
+  order-drug-test.html
+  assets/js/portal.js
+  assets/css/portal.css

@@ -1,7 +1,7 @@
 
 (function(){
 const cfg=window.S4U;
-const supabase=window.supabase.createClient(cfg.url,cfg.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const supabase=window.S4UGetSupabaseClient();
 const msg=(text,cls="")=>{const e=document.getElementById("auth-msg");if(e){e.textContent=text;e.className="auth-msg "+cls}};
 
 async function route(){
