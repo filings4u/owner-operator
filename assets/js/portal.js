@@ -263,8 +263,50 @@ async function loadOnboarding(){
  const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
  if(d.completed){
    const proof=d.preemployment_proof,testReq=d.test_request;
-   root.innerHTML=pageHead("GETTING STARTED","Owner-Operator onboarding completed","Your consortium agreement and pre-employment testing requirement are on file. You can continue into the portal.")+`
-   <div class="card agreement-complete"><div class="status">Completed</div><h2>${esc(agreement?.company_name||prefill.company_name||"Owner-Operator")}</h2><p><strong>Agreement:</strong> ${agreementDone?"Signed":"Pending"}</p><p><strong>Pre-employment requirement:</strong> ${proof?"Official negative result uploaded — pending verification":testReq?"DOT 5-panel test requested — scheduling pending":"Complete"}</p>${agreement?`<p><strong>Signed:</strong> ${fmt(agreement.signed_at)}</p>`:""}<div class="actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>`;
+   const companyName=esc(agreement?.company_name||prefill.company_name||"Owner-Operator");
+   const signedDate=agreement?.signed_at?fmt(agreement.signed_at):"On file";
+   const preemploymentText=proof?"Official negative result uploaded":testReq?"DOT 5-panel test requested":"Requirement complete";
+   root.innerHTML=pageHead("GETTING STARTED","Owner-Operator onboarding completed","Your enrollment steps are on file. Review your status below, then continue to the Clearinghouse setup.")+`
+   <div class="completion-shell">
+    <section class="card completion-hero">
+      <div class="completion-hero__badge">Completed</div>
+      <div class="completion-hero__header">
+        <div class="completion-hero__copy">
+          <h2>${companyName}</h2>
+          <p>Your Owner-Operator onboarding has been submitted successfully and your portal is ready for the next required step.</p>
+        </div>
+        <div class="completion-hero__next">
+          <div class="completion-next-label">Next required step</div>
+          <h3>Clearinghouse Setup</h3>
+          <p>Designate Workforce DOT | screenings4u as your C/TPA in the FMCSA Clearinghouse.</p>
+          <div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div>
+        </div>
+      </div>
+    </section>
+    <div class="completion-grid">
+      <section class="card completion-panel">
+        <div class="section-kicker">STATUS SUMMARY</div>
+        <h3>What’s on file</h3>
+        <div class="completion-status-grid">
+          <div class="completion-status-item success"><span class="completion-status-label">Consortium agreement</span><strong>${agreementDone?"Signed":"Submitted"}</strong><small>${signedDate}</small></div>
+          <div class="completion-status-item success"><span class="completion-status-label">Pre-employment requirement</span><strong>${preemploymentText}</strong><small>${proof?"Pending verification":testReq?"Scheduling pending":"Complete"}</small></div>
+          <div class="completion-status-item pending"><span class="completion-status-label">Clearinghouse designation</span><strong>Still required</strong><small>Complete next to activate representation workflow</small></div>
+        </div>
+      </section>
+      <section class="card completion-panel">
+        <div class="section-kicker">NEXT ACTION</div>
+        <h3>Before you move forward</h3>
+        <p>In order for Workforce DOT | screenings4u to represent you, you must designate us as your C/TPA in the FMCSA Drug & Alcohol Clearinghouse.</p>
+        <ul class="completion-checklist">
+          <li>Register or sign in to the FMCSA Clearinghouse</li>
+          <li>Search for <strong>Workforce DOT | screenings4u</strong></li>
+          <li>Designate us as your C/TPA</li>
+          <li>Return here and confirm the setup</li>
+        </ul>
+        <div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Go to Clearinghouse Setup</a><a class="btn btn-secondary" href="/dashboard.html">Go to Dashboard</a></div>
+      </section>
+    </div>
+   </div>`;
    return;
  }
  const company=esc(prefill.company_name||""),authorized=esc(prefill.authorized_name||""),industry=String(prefill.industry_code||"FMCSA").toUpperCase();
