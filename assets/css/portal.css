@@ -372,3 +372,10 @@ body.onboarding-nav-locked .mobile-nav-links a.onboarding-disabled:hover{backgro
 /* Unified portal text scaling: every visible control follows the A-/A+ root size. */
 button,input,select,textarea{font-family:inherit;font-size:1rem}
 input::placeholder,textarea::placeholder{font-size:inherit}
+
+/* Owner-Operator profile is intentionally read-only. */
+.readonly-profile-notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px 16px;border:1px solid #d9e4ef;border-left:4px solid #f97300;border-radius:10px;background:#f8fbfe;color:#183653}
+.readonly-profile-notice strong{font-size:1rem;color:#0b2f55}
+.readonly-profile-notice span{flex:1 1 420px;color:#61758a}
+.readonly-profile-grid input[readonly]{background:#eef2f6!important;color:#5f6f80!important;border-color:#d2dbe5!important;cursor:not-allowed!important;box-shadow:none!important}
+@media(max-width:760px){.readonly-profile-notice{align-items:flex-start}.readonly-profile-notice .btn{width:100%;text-align:center}}

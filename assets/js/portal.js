@@ -485,24 +485,20 @@ async function loadDashboard(){
 
 async function loadProfile(){
  const d=await owner("profile"), o=d.owner||d.profile||{};
- document.getElementById("page-content").innerHTML=pageHead("ACCOUNT","Company profile","Keep your Owner-Operator business and DOT identifiers current.")+
- `<div class="card"><form id="profile-form" class="form-grid">
-   <div class="field"><label>Legal name</label><input name="legal_name" value="${esc(o.legal_name)}"></div>
-   <div class="field"><label>DBA</label><input name="dba_name" value="${esc(o.dba_name)}"></div>
-   <div class="field"><label>USDOT number</label><input name="dot_number" value="${esc(o.dot_number)}"></div>
-   <div class="field"><label>MC number</label><input name="mc_number" value="${esc(o.mc_number)}"></div>
-   <div class="field"><label>Email</label><input type="email" name="email" value="${esc(o.email)}"></div>
-   <div class="field"><label>Phone</label><input name="phone" value="${esc(o.phone)}"></div>
-   <div class="field"><label>State</label><select name="state">${stateOptions(o.state||'')}</select></div>
-   <div class="field"><label>Vehicles</label><input type="number" min="1" name="vehicle_count" value="${esc(o.vehicle_count||1)}"></div>
-   <div class="actions field full"><button class="btn btn-primary" type="submit">Save profile</button><span id="save-msg"></span></div>
- </form></div>`;
- document.getElementById("profile-form").addEventListener("submit",async e=>{
-  e.preventDefault(); const fd=new FormData(e.currentTarget), profile=Object.fromEntries(fd.entries());
-  profile.vehicle_count=Number(profile.vehicle_count||1);
-  const msg=document.getElementById("save-msg"); msg.textContent="Saving…";
-  try{await owner("save_profile",{profile});msg.textContent="Saved.";msg.className="success"}catch(err){msg.textContent=err.message;msg.className="error"}
- });
+ document.getElementById("page-content").innerHTML=pageHead("ACCOUNT","Company profile","View the locked company information associated with your Owner-Operator account.")+
+ `<div class="card">
+   <div class="readonly-profile-notice"><strong>Read-only account information</strong><span>Owner-Operator company information is locked after onboarding. To request a correction, contact Support.</span><a class="btn btn-secondary" href="/support.html">Contact Support</a></div>
+   <div class="form-grid readonly-profile-grid" aria-label="Locked company profile">
+     <div class="field"><label>Legal name</label><input value="${esc(o.legal_name)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>DBA</label><input value="${esc(o.dba_name)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>USDOT number</label><input value="${esc(o.dot_number)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>MC number</label><input value="${esc(o.mc_number)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>Email</label><input type="email" value="${esc(o.email)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>Phone</label><input value="${esc(o.phone)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>State</label><input value="${esc(o.state)}" readonly aria-readonly="true"></div>
+     <div class="field"><label>Vehicles</label><input value="${esc(o.vehicle_count||1)}" readonly aria-readonly="true"></div>
+   </div>
+ </div>`;
 }
 
 async function loadDrivers(){
