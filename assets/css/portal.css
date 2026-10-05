@@ -353,3 +353,10 @@ html{scroll-behavior:auto}
 .subsection-title{font-size:13px;font-weight:900;color:#102f55;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
 .req{color:#c4382b}.optional{font-size:11px;color:#7a8da0;font-weight:600}
 @media(max-width:840px){.onboarding-progress--three,.onboarding-profile-form{grid-template-columns:1fr}.onboarding-profile-form .field.full{grid-column:auto}.profile-step-title{align-items:flex-start}.lock-tooltip__bubble{right:-8px;width:260px}}
+
+
+/* Owner-Operator onboarding conditional fields */
+.conditional-driver-fields[hidden]{display:none!important}
+#owner-driver-fields,#self-driver-fields{grid-column:1/-1}
+#owner-driver-fields .nested-grid,#self-driver-fields .nested-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media(max-width:760px){#owner-driver-fields .nested-grid,#self-driver-fields .nested-grid{grid-template-columns:1fr}}

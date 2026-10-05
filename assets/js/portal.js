@@ -356,10 +356,24 @@ async function loadOnboarding(){
 
  if(!profileDone){
    const form=document.getElementById('onboarding-profile-form'),msg=document.getElementById('profile-step-msg'),btn=document.getElementById('profile-step-submit'),scope=form.elements.operation_scope,role=form.elements.role_capacity,mc=form.elements.mc_number,ownerFields=document.getElementById('owner-driver-fields'),selfFields=document.getElementById('self-driver-fields'),mcReq=document.getElementById('mc-required'),mcOpt=document.getElementById('mc-optional');
-   const syncScope=()=>{const interstate=scope.value==='interstate';mc.required=interstate;mcReq.style.display=interstate?'inline':'none';mcOpt.style.display=interstate?'none':'inline'};
-   const setRequired=(box,on)=>box.querySelectorAll('input').forEach(x=>x.required=on);
-   const syncRole=()=>{const v=role.value,isOwner=v==='owner',isSelf=v==='driver'||v==='owner_driver';ownerFields.hidden=!isOwner;selfFields.hidden=!isSelf;setRequired(ownerFields,isOwner);setRequired(selfFields,isSelf)};
-   scope.addEventListener('change',syncScope);role.addEventListener('change',syncRole);syncScope();syncRole();
+   const syncScope=()=>{
+     const interstate=scope.value==='interstate';
+     mc.required=interstate;
+     mc.setAttribute('aria-required',interstate?'true':'false');
+     mcReq.style.display=interstate?'inline':'none';
+     mcOpt.style.display=interstate?'none':'inline';
+   };
+   const setRequired=(box,on)=>box.querySelectorAll('input,select').forEach(x=>{x.required=on;x.disabled=!on});
+   const showBox=(box,on)=>{box.hidden=!on;box.style.display=on?'block':'none';setRequired(box,on)};
+   const syncRole=()=>{
+     const v=role.value;
+     showBox(ownerFields,v==='owner');
+     showBox(selfFields,v==='driver'||v==='owner_driver');
+   };
+   scope.addEventListener('change',syncScope);
+   role.addEventListener('change',syncRole);
+   syncScope();
+   syncRole();
    form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving and locking information…';msg.className='form-message';btn.disabled=true;const profile=Object.fromEntries(new FormData(form).entries());try{const saved=await onboardingProfileApi('save',{profile});if(saved?.error)throw new Error(saved.error);state.onboardingProfile={...(await onboardingProfileApi('status')),completed:true,locked:true};msg.textContent='Information saved and locked.';msg.className='form-message success';await loadOnboarding()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
  } else if(!agreementDone){
    const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
