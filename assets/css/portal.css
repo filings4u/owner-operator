@@ -202,3 +202,15 @@ body{background:#eef3f8;color:var(--ink)}
 
 /* Owner-Operator in-portal Stripe checkout */
 .checkout-portal-grid{align-items:start}.price-line{display:flex;align-items:baseline;gap:10px;margin:18px 0}.price-line strong{font-size:36px;color:#102f55}.price-line span{color:#667085;font-weight:700}.stripe-mount{margin:18px 0;min-height:100px;padding:16px;border:1px solid #dbe4ef;border-radius:12px;background:#fff}.checkout-portal-grid .btn{margin-top:12px}
+
+
+/* Owner-Operator FMCSA Clearinghouse setup */
+.clearinghouse-callout{border-left:4px solid var(--orange,#ef6c00)}
+.setup-checklist{margin:8px 0 0;padding-left:24px;display:grid;gap:16px}
+.setup-checklist li{padding-left:6px;color:#163753}
+.setup-checklist li strong{display:block;color:#102f55;margin-bottom:4px}
+.setup-checklist li span{display:block;line-height:1.55;color:#52677c}
+.clearinghouse-confirm .checkline{display:flex;gap:10px;align-items:flex-start;margin:14px 0;padding:13px 14px;border:1px solid #dce6ef;border-radius:10px;background:#f8fbfe}
+.clearinghouse-confirm .checkline input{margin-top:3px;width:18px;height:18px;flex:0 0 auto}
+.clearinghouse-complete{border-left:4px solid #218a55}
+@media(max-width:700px){.setup-checklist{padding-left:20px}.clearinghouse-confirm .actions .btn,.clearinghouse-callout .actions .btn{width:100%;text-align:center}}

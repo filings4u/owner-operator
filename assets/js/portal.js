@@ -6,6 +6,7 @@ const supabase=window.S4UGetSupabaseClient();
 
 const NAV=[
   ["onboarding.html","✓","Getting Started"],
+  ["clearinghouse-setup.html","☑","Clearinghouse Setup"],
   ["dashboard.html","⌂","Dashboard"],
   ["profile.html","◎","Company Profile"],
   ["drivers.html","♟","Driver"],
@@ -42,18 +43,32 @@ const featureByPage={
 const state={session:null,context:null,entitlements:{},permissions:[]};
 
 async function edge(name,body){
-  const {data:{session}}=await supabase.auth.getSession();
-  const token=session?.access_token;
-  if(!token) throw new Error("Your session has expired.");
-  const r=await fetch(cfg.api+"/"+name,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer "+token,
-      "apikey":cfg.key
-    },
-    body:JSON.stringify(body||{})
-  });
+  async function validSession(forceRefresh=false){
+    let {data:{session},error}=forceRefresh?await supabase.auth.refreshSession():await supabase.auth.getSession();
+    if(error) session=null;
+    const expiresAt=Number(session?.expires_at||0)*1000;
+    if(session?.access_token && (!expiresAt || expiresAt-Date.now()>60000)) return session;
+    const refreshed=await supabase.auth.refreshSession();
+    if(refreshed.error||!refreshed.data?.session?.access_token) throw new Error("Your session has expired. Please sign in again.");
+    return refreshed.data.session;
+  }
+  async function send(session){
+    return fetch(cfg.api+"/"+name,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer "+session.access_token,
+        "apikey":cfg.key
+      },
+      body:JSON.stringify(body||{})
+    });
+  }
+  let session=await validSession(false);
+  let r=await send(session);
+  if(r.status===401){
+    session=await validSession(true);
+    r=await send(session);
+  }
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.error) throw new Error(j.error||("Request failed ("+r.status+")"));
   return j;
@@ -178,6 +193,11 @@ async function guard(){
   const onboarding=await onboardingApi("status");
   state.onboarding=onboarding;
   if(!onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
+  if(onboarding.completed){
+    const clearinghouse=await clearinghouseApi("status");
+    state.clearinghouse=clearinghouse;
+    if(!clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/clearinghouse-setup.html");return false}
+  }
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false){
     throw new Error("This page is not included in your current Owner-Operator plan.");
@@ -199,7 +219,18 @@ function errorView(e){
 
 async function owner(action,extra={}){return edge("workforce-owner-portal",{action,...extra})}
 async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
-async function onboardingApi(action,extra={}){return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra})}
+async function onboardingApi(action,extra={}){
+  const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
+  if(action==="status") return edge("owner-operator-actions",{...payload,action:"onboarding_status",page:"onboarding.html"});
+  if(action==="complete_agreement") return edge("owner-operator-actions",{...payload,action:"complete_onboarding",page:"onboarding.html"});
+  return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
+}
+async function clearinghouseApi(action,extra={}){
+  const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
+  if(action==="status") return edge("owner-operator-actions",{...payload,action:"clearinghouse_status",page:"clearinghouse-setup.html"});
+  if(action==="confirm") return edge("owner-operator-actions",{...payload,action:"confirm_clearinghouse",page:"clearinghouse-setup.html"});
+  throw new Error("Unsupported Clearinghouse action.");
+}
 
 async function loadOnboarding(){
  const d=state.onboarding||await onboardingApi("status"),prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
@@ -207,7 +238,7 @@ async function loadOnboarding(){
  if(d.completed){
    const proof=d.preemployment_proof,testReq=d.test_request;
    root.innerHTML=pageHead("GETTING STARTED","Owner-Operator onboarding completed","Your consortium agreement and pre-employment testing requirement are on file. You can continue into the portal.")+`
-   <div class="card agreement-complete"><div class="status">Completed</div><h2>${esc(agreement?.company_name||prefill.company_name||"Owner-Operator")}</h2><p><strong>Agreement:</strong> ${agreementDone?"Signed":"Pending"}</p><p><strong>Pre-employment requirement:</strong> ${proof?"Official negative result uploaded — pending verification":testReq?"DOT 5-panel test requested — scheduling pending":"Complete"}</p>${agreement?`<p><strong>Signed:</strong> ${fmt(agreement.signed_at)}</p>`:""}<div class="actions"><a class="btn btn-primary" href="/dashboard.html">Continue to Dashboard</a></div></div>`;
+   <div class="card agreement-complete"><div class="status">Completed</div><h2>${esc(agreement?.company_name||prefill.company_name||"Owner-Operator")}</h2><p><strong>Agreement:</strong> ${agreementDone?"Signed":"Pending"}</p><p><strong>Pre-employment requirement:</strong> ${proof?"Official negative result uploaded — pending verification":testReq?"DOT 5-panel test requested — scheduling pending":"Complete"}</p>${agreement?`<p><strong>Signed:</strong> ${fmt(agreement.signed_at)}</p>`:""}<div class="actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>`;
    return;
  }
  const company=esc(prefill.company_name||""),authorized=esc(prefill.authorized_name||""),industry=String(prefill.industry_code||"FMCSA").toUpperCase();
@@ -251,7 +282,7 @@ async function loadOnboarding(){
    </form>
   </div>`;
  const proofSection=preemploymentDone?`
-  <div class="card onboarding-step complete-step" id="preemployment"><div class="status">Requirement submitted</div><h2>Pre-employment drug test</h2><p>${d.preemployment_proof?"Your official negative result has been uploaded and is pending verification.":"Your included DOT 5-panel drug test request has been submitted for scheduling."}</p><div class="actions"><a class="btn btn-primary" href="/dashboard.html">Continue to Dashboard</a></div></div>`:`
+  <div class="card onboarding-step complete-step" id="preemployment"><div class="status">Requirement submitted</div><h2>Pre-employment drug test</h2><p>${d.preemployment_proof?"Your official negative result has been uploaded and is pending verification.":"Your included DOT 5-panel drug test request has been submitted for scheduling."}</p><div class="actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>`:`
   <div class="card onboarding-step" id="preemployment">
    <div class="step-kicker">STEP 2 · REQUIRED</div><h2>Pre-employment negative drug test</h2>
    <p>To complete Owner-Operator onboarding, provide an official negative DOT drug test result dated within the last 30 days, or order a new DOT 5-panel urine drug test.</p>
@@ -268,7 +299,7 @@ async function loadOnboarding(){
  if(!agreementDone){
    const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
    form.querySelectorAll('input[name="industry_code"]').forEach(el=>el.addEventListener('change',()=>{document.getElementById('other-industry-field').style.display=el.value==='OTHER'&&el.checked?'block':'none'}));
-   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{await onboardingApi('complete_agreement',{agreement});location.replace('/onboarding.html#preemployment')}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error';btn.disabled=false}});
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';location.href='/onboarding.html?step=preemployment#preemployment'}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
  } else if(!preemploymentDone){
    const form=document.getElementById('proof-form');
    form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),650)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
@@ -315,6 +346,21 @@ async function loadCheckout(){
    statusEl.textContent='Secure payment powered by Stripe.';btn.disabled=false;
    btn.addEventListener('click',async()=>{btn.disabled=true;errEl.hidden=true;statusEl.textContent='Processing payment…';const result=await stripe.confirmPayment({elements,confirmParams:{return_url:location.origin+'/checkout.html?payment=return&order_id='+encodeURIComponent(session.orderId)},redirect:'if_required'});if(result.error){errEl.textContent=result.error.message||'Payment could not be completed.';errEl.hidden=false;statusEl.textContent='Payment was not completed.';btn.disabled=false;return}const pi=result.paymentIntent;if(pi&&['succeeded','processing'].includes(pi.status)){localStorage.setItem('s4u_owner_operator_paid_test_order',session.orderId);statusEl.textContent=pi.status==='succeeded'?'Payment received. Continue to your test order.':'Payment is processing. You can continue once Stripe confirms it.';root.querySelector('.checkout-portal-grid').insertAdjacentHTML('afterend',`<div class="card agreement-complete" style="margin-top:18px"><div class="status">Payment received</div><h2>Continue inside your portal</h2><p>Your payment reference is <strong>${esc(session.orderNumber||session.orderId)}</strong>.</p><div class="actions"><a class="btn btn-primary" href="/order-drug-test.html?order_id=${encodeURIComponent(session.orderId)}">Continue to Test Order</a></div></div>`);btn.hidden=true}else{statusEl.textContent='Stripe is still confirming the payment.';btn.disabled=false}});
  }catch(err){console.error(err);const el=document.getElementById('checkout-status');if(el){el.textContent=err.message||String(err);el.className='form-message error'}}
+}
+
+async function loadClearinghouseSetup(){
+ const d=state.clearinghouse||await clearinghouseApi("status"),root=document.getElementById("page-content");
+ if(d.completed){
+   root.innerHTML=pageHead("FMCSA CLEARINGHOUSE","C/TPA designation confirmed","Your portal record shows that you confirmed Workforce DOT | screenings4u as your designated C/TPA.")+`
+   <div class="card clearinghouse-complete"><div class="status">Confirmed</div><h2>Workforce DOT | screenings4u</h2><p>Your C/TPA designation checklist is complete.</p>${d.designation?.confirmed_at?`<p><strong>Confirmed:</strong> ${fmt(d.designation.confirmed_at)}</p>`:""}<div class="actions"><a class="btn btn-primary" href="/dashboard.html">Continue to Dashboard</a><a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/">Open FMCSA Clearinghouse</a></div></div>`;
+   return;
+ }
+ root.innerHTML=pageHead("REQUIRED SETUP","Designate your C/TPA in the FMCSA Clearinghouse","Owner-operators must designate a C/TPA in the FMCSA Drug & Alcohol Clearinghouse. Complete the steps below, then confirm the designation in this portal.")+`
+ <div class="card clearinghouse-callout"><div class="status warn">Required before portal access</div><h2>Designate: Workforce DOT | screenings4u</h2><p>Use the exact C/TPA name shown above when searching in the Clearinghouse.</p><div class="actions"><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/register">Register / Sign Up</a><a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/">Log In to Clearinghouse</a><a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/Resource/Index/Clearinghouse-Designate-CTPA">Official FMCSA Instructions</a></div></div>
+ <div class="card"><h2>Clearinghouse checklist</h2><ol class="setup-checklist"><li><strong>Register or log in as the employer/owner-operator.</strong><span>If you are registering, indicate that you are an owner-operator when the Clearinghouse asks.</span></li><li><strong>Open your Employer Dashboard.</strong><span>Under <em>My Dashboard</em>, go to <strong>Manage → C/TPAs</strong>.</span></li><li><strong>Search for Workforce DOT | screenings4u.</strong><span>Use the C/TPA search field and select our registered C/TPA listing.</span></li><li><strong>Click Designate.</strong><span>Add Workforce DOT | screenings4u to your designated C/TPAs.</span></li><li><strong>Authorize the required functions.</strong><span>Select <strong>Report Violations</strong>, <strong>Report RTD Information</strong>, and <strong>Conduct Queries</strong>.</span></li><li><strong>Click Save.</strong><span>The Clearinghouse sends the C/TPA a request to accept the designation.</span></li></ol></div>
+ <form class="card clearinghouse-confirm" id="clearinghouse-confirm-form"><h2>Confirm your designation</h2><p>After saving the designation in the FMCSA Clearinghouse, complete this checklist. We will keep your portal confirmation on file while the Clearinghouse designation is accepted/verified.</p><label class="checkline"><input type="checkbox" name="designated" value="yes" required><span>I designated <strong>Workforce DOT | screenings4u</strong> as my C/TPA.</span></label><label class="checkline"><input type="checkbox" name="report_violations" value="yes" required><span>I authorized <strong>Report Violations</strong>.</span></label><label class="checkline"><input type="checkbox" name="report_rtd" value="yes" required><span>I authorized <strong>Report RTD Information</strong>.</span></label><label class="checkline"><input type="checkbox" name="conduct_queries" value="yes" required><span>I authorized <strong>Conduct Queries</strong>.</span></label><label class="checkline"><input type="checkbox" name="certify" value="yes" required><span>I certify that I completed and saved these selections in the FMCSA Clearinghouse.</span></label><div id="clearinghouse-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Confirm Clearinghouse Setup</button></div></form>`;
+ const form=document.getElementById("clearinghouse-confirm-form"),msg=document.getElementById("clearinghouse-msg");
+ form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);msg.textContent="Clearinghouse designation confirmed. Opening your dashboard…";msg.className="form-message success";setTimeout(()=>location.replace("/dashboard.html"),600)}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});
 }
 
 async function loadDashboard(){
@@ -474,7 +520,7 @@ async function initPage(){
    if(!await guard())return;
    const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
    const loaders={
-    "onboarding.html":loadOnboarding,"checkout.html":loadCheckout,"order-drug-test.html":loadDrugTestOrder,"dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,"programs.html":loadPrograms,
+    "onboarding.html":loadOnboarding,"clearinghouse-setup.html":loadClearinghouseSetup,"checkout.html":loadCheckout,"order-drug-test.html":loadDrugTestOrder,"dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,"programs.html":loadPrograms,
     "consortium.html":loadConsortium,"testing.html":loadTesting,"results.html":loadResults,"compliance.html":loadCompliance,
     "rtd.html":loadRTD,"documents.html":loadDocuments,"reports.html":loadReports,"billing.html":loadBilling,
     "notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
