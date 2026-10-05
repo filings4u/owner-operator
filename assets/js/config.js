@@ -62,7 +62,7 @@ window.PORTAL_CONFIG=Object.freeze({
       if(knownSession.has(original))target=R.session;
       else if(knownDistribution.has(original))target=R.distribution;
       else if(knownCatalog.has(original)){target=R.actions;routeToActions=true;}
-      else if(original.startsWith('workforce-')||original==='dot-portal-actions'){target=R.actions;routeToActions=true;}
+      else if(original!=='workforce-support'&&(original.startsWith('workforce-')||original==='dot-portal-actions')){target=R.actions;routeToActions=true;}
       if(target===original)return baseFetch(input,init);
       parts[idx+1]=target;u.pathname=parts.join('/');
       const i=init?{...init}:{};

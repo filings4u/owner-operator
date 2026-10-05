@@ -360,3 +360,10 @@ html{scroll-behavior:auto}
 #owner-driver-fields,#self-driver-fields{grid-column:1/-1}
 #owner-driver-fields .nested-grid,#self-driver-fields .nested-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media(max-width:760px){#owner-driver-fields .nested-grid,#self-driver-fields .nested-grid{grid-template-columns:1fr}}
+
+/* Onboarding navigation lock: only Support and Sign out remain available in the shell */
+body.onboarding-nav-locked .side .nav a.onboarding-disabled,
+body.onboarding-nav-locked .mobile-nav-links a.onboarding-disabled{opacity:.34;filter:grayscale(.25);pointer-events:none;cursor:not-allowed}
+body.onboarding-nav-locked .side .nav a.onboarding-disabled:hover,
+body.onboarding-nav-locked .mobile-nav-links a.onboarding-disabled:hover{background:transparent;color:inherit}
+.support-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.7fr);gap:18px;max-width:1080px;margin:0 auto 32px}.support-ticket-card,.support-contact-card{padding:24px}.support-ticket-card h2,.support-contact-card h2{margin:4px 0 10px;color:#102f55}.support-ticket-card>p,.support-contact-card p{color:#5f7186;line-height:1.6}.support-ticket-card textarea{width:100%;resize:vertical;min-height:150px;border:1px solid #cddbeb;border-radius:10px;padding:12px;font:inherit;color:#102f55;background:#fff}.support-contact-card a{font-weight:800;color:#174e80}@media(max-width:820px){.support-layout{grid-template-columns:1fr}}

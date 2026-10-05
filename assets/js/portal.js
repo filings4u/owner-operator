@@ -213,7 +213,7 @@ async function guard(){
   if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
   state.onboarding=boot.onboarding||null;
   state.clearinghouse=boot.clearinghouse||null;
-  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){history.replaceState({},'', '/onboarding.html');return true}
+  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page)){history.replaceState({},'', '/onboarding.html');return true}
   if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){navigatePortal("/clearinghouse-setup.html",{replace:true});return false}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false) throw new Error("This page is not included in your current Owner-Operator plan.");
@@ -590,8 +590,25 @@ async function loadAudit(){
 }
 
 async function loadSupport(){
- document.getElementById("page-content").innerHTML=pageHead("SUPPORT","Support","Contact Screenings4u for software support.")+
- `<div class="grid grid-2"><div class="card"><h2>Software support</h2><p>Email: <a href="mailto:support@screenings4u.com">support@screenings4u.com</a></p><p>Phone: <a href="tel:7732457009">(773) 245-7009</a></p></div><div class="card"><h2>FMCSA resources</h2><p>Use official FMCSA resources for regulatory guidance. Screenings4u provides software and administrative tools, not legal advice.</p><a class="btn btn-secondary" target="_blank" rel="noopener" href="https://www.fmcsa.dot.gov/regulations/drug-alcohol-testing/owner-operator">FMCSA Owner-Operator guidance</a></div></div>`;
+ const root=document.getElementById('page-content');
+ root.innerHTML=pageHead('SUPPORT','Support','Create a support ticket if you need help completing Owner-Operator onboarding or using the portal.')+`
+ <div class="support-layout">
+  <div class="card support-ticket-card">
+   <div class="step-kicker">PORTAL SUPPORT</div>
+   <h2>Create a support ticket</h2>
+   <p>Describe the issue you are having. Your ticket will be tied to your Owner-Operator account so our support team can follow up.</p>
+   <form id="support-ticket-form" class="form-grid">
+    <div class="field full"><label>Subject</label><input name="subject" maxlength="140" required placeholder="What do you need help with?"></div>
+    <div class="field"><label>Category</label><select name="category" required><option value="onboarding">Onboarding</option><option value="account">Account / Login</option><option value="testing">Drug Testing</option><option value="clearinghouse">Clearinghouse</option><option value="billing">Billing</option><option value="portal">Portal / Technical</option></select></div>
+    <div class="field"><label>Priority</label><select name="priority" required><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>
+    <div class="field full"><label>Message</label><textarea name="message" rows="7" required placeholder="Tell us what happened, what page you were on, and any error message you saw."></textarea></div>
+    <div class="field full"><div id="support-ticket-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" type="submit">Create Support Ticket</button></div>
+   </form>
+  </div>
+  <div class="card support-contact-card"><h2>Need immediate help?</h2><p><strong>Email</strong><br><a href="mailto:support@screenings4u.com">support@screenings4u.com</a></p><p><strong>Phone</strong><br><a href="tel:7732457009">(773) 245-7009</a></p><p class="fine-print">During required onboarding, Support and Sign out remain available even though the rest of the portal navigation is locked.</p></div>
+ </div>`;
+ const form=document.getElementById('support-ticket-form'),msg=document.getElementById('support-ticket-msg');
+ form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);btn.disabled=true;msg.textContent='Creating support ticket…';msg.className='form-message';try{const out=await edge('workforce-support',{action:'create',subject:String(fd.get('subject')||''),category:String(fd.get('category')||'portal'),priority:String(fd.get('priority')||'normal'),message:String(fd.get('message')||''),portal_page:currentPage(),page_title:document.title,page_url:location.href});if(out?.error)throw new Error(out.error);msg.textContent='Support ticket '+(out?.ticket?.ticket_number||'created')+'. Our support team can now review your request.';msg.className='form-message success';form.reset()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
 }
 
 const LOADERS={
@@ -604,15 +621,20 @@ const LOADERS={
 function currentPage(){return (location.pathname.split("/").pop()||"dashboard.html").toLowerCase()}
 function syncActiveNav(){
   const page=currentPage();
+  const onboardingLocked=!!(state.onboarding && !state.onboarding.completed);
+  document.body.classList.toggle('onboarding-nav-locked',onboardingLocked);
   document.querySelectorAll('.side .nav a,.mobile-nav-links a').forEach(a=>{
     const href=(a.getAttribute('href')||'').split('?')[0].split('#')[0].replace(/^\//,'').toLowerCase();
     a.classList.toggle('active',href===page);
+    const allowed=!onboardingLocked||href==='support.html';
+    a.classList.toggle('onboarding-disabled',!allowed);
+    if(!allowed){a.setAttribute('aria-disabled','true');a.setAttribute('tabindex','-1')}else{a.removeAttribute('aria-disabled');a.removeAttribute('tabindex')}
   });
   const current=(NAV.find(x=>x[0]===page)||[])[2]||'Portal';
   const chip=document.querySelector('.mobile-nav-current');if(chip)chip.textContent=current;
 }
 function allowedRoute(page){
-  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page))return '/onboarding.html';
+  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html","support.html"].includes(page))return '/onboarding.html';
   if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page))return '/clearinghouse-setup.html';
   return null;
 }
@@ -653,6 +675,8 @@ function bindSpaNavigation(){
     if(a.target==='_blank'||a.hasAttribute('download'))return;
     const u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
     if(!/\.html$/i.test(u.pathname))return;
+    const next=(u.pathname.split('/').pop()||'').toLowerCase();
+    if(state.onboarding&&!state.onboarding.completed&&a.closest('.side,.mobile-nav')&&next!=='support.html'){e.preventDefault();return}
     e.preventDefault();navigatePortal(u.pathname+u.search+u.hash);
   });
   addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
