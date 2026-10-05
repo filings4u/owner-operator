@@ -42,7 +42,12 @@ const featureByPage={
 
 const state={session:null,context:null,entitlements:{},permissions:[],onboarding:null,clearinghouse:null};
 const pageCache=new Map();
-const PAGE_CACHE_TTL=30000;
+const PAGE_CACHE_TTL=5*60*1000;
+const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:';
+const PREFETCH_ACTIONS=['overview','profile','drivers','programs','consortium','testing','results','compliance','rtd','documents','reports','billing','notifications','audit'];
+function readPersistentCache(key){try{const x=JSON.parse(sessionStorage.getItem(PERSIST_CACHE_PREFIX+key)||'null');if(x&&Date.now()-Number(x.ts||0)<PAGE_CACHE_TTL)return x}catch{}return null}
+function writePersistentCache(key,entry){try{sessionStorage.setItem(PERSIST_CACHE_PREFIX+key,JSON.stringify(entry))}catch{}}
+function deletePageCache(key){pageCache.delete(key);try{sessionStorage.removeItem(PERSIST_CACHE_PREFIX+key)}catch{}}
 let navigating=false;
 
 async function edge(name,body){
@@ -160,9 +165,9 @@ function renderShell(){
     if(!d||!t)return;
     const now=new Date();
     d.textContent=new Intl.DateTimeFormat('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}).format(now);
-    t.textContent=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true}).format(now);
+    t.textContent=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',hour12:true}).format(now);
   };
-  updateClock(); clearInterval(window.__s4uOwnerClock); window.__s4uOwnerClock=setInterval(updateClock,1000);
+  updateClock(); clearInterval(window.__s4uOwnerClock); window.__s4uOwnerClock=setInterval(updateClock,30000);
 
   const menu=document.getElementById('menu'),mobile=document.getElementById('mobileNav');
   const closeMenu=()=>{menu?.classList.remove('open');menu?.setAttribute('aria-expanded','false');mobile?.classList.remove('open');mobile?.setAttribute('aria-hidden','true');document.body.classList.remove('mobile-nav-open')};
@@ -237,11 +242,12 @@ async function owner(action,extra={}){
   const cacheable=!extra||Object.keys(extra).length===0;
   const key='owner:'+action;
   if(cacheable){
-    const hit=pageCache.get(key);
+    let hit=pageCache.get(key);
+    if(!hit){hit=readPersistentCache(key);if(hit)pageCache.set(key,hit)}
     if(hit&&Date.now()-hit.ts<PAGE_CACHE_TTL)return hit.data;
   }
   const data=await edge("owner-operator-portal-fast",payload);
-  if(cacheable)pageCache.set(key,{ts:Date.now(),data});
+  if(cacheable){const entry={ts:Date.now(),data};pageCache.set(key,entry);writePersistentCache(key,entry)}
   return data;
 }
 async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
@@ -579,7 +585,7 @@ async function loadUsers(){
  document.getElementById("invite-cancel")?.addEventListener("click",()=>document.getElementById("invite-popup").classList.remove("open"));
  document.getElementById("invite-form")?.addEventListener("submit",async e=>{
    e.preventDefault();const member=Object.fromEntries(new FormData(e.currentTarget).entries()),msg=document.getElementById("invite-msg");msg.textContent="Sending…";
-   try{await members("invite",{member});msg.textContent="Invitation sent.";msg.className="success";pageCache.delete('owner:members'); setTimeout(()=>loadUsers().catch(errorView),150)}catch(err){msg.textContent=err.message;msg.className="error"}
+   try{await members("invite",{member});msg.textContent="Invitation sent.";msg.className="success";deletePageCache('owner:members'); setTimeout(()=>loadUsers().catch(errorView),150)}catch(err){msg.textContent=err.message;msg.className="error"}
  });
 }
 
@@ -618,6 +624,19 @@ const LOADERS={
   "compliance.html":loadCompliance,"rtd.html":loadRTD,"documents.html":loadDocuments,"reports.html":loadReports,
   "billing.html":loadBilling,"notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
 };
+function warmPortalCache(){
+  if(window.__S4U_OWNER_CACHE_WARMING__)return;
+  window.__S4U_OWNER_CACHE_WARMING__=true;
+  const run=async()=>{
+    const queue=PREFETCH_ACTIONS.filter(a=>{const k='owner:'+a;const m=pageCache.get(k)||readPersistentCache(k);if(m){pageCache.set(k,m);return false}return true});
+    const workers=Array.from({length:4},async()=>{
+      while(queue.length){const action=queue.shift();if(!action)break;try{await owner(action)}catch{}}
+    });
+    await Promise.all(workers);
+    window.__S4U_OWNER_CACHE_WARMED__=true;
+  };
+  if('requestIdleCallback' in window)requestIdleCallback(()=>run(),{timeout:250});else setTimeout(run,25);
+}
 function currentPage(){return (location.pathname.split("/").pop()||"dashboard.html").toLowerCase()}
 function syncActiveNav(){
   const page=currentPage();
@@ -692,6 +711,7 @@ async function initPage(){
   try{
     if(!await guard())return;
     await renderCurrentPage();
+    warmPortalCache();
     document.getElementById('page-retry-btn')?.addEventListener('click',()=>renderCurrentPage().catch(errorView));
   }catch(e){console.error(e);errorView(e)}
 }
