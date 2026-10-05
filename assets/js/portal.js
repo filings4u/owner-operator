@@ -180,28 +180,34 @@ async function guard(){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session){location.replace("/login.html?next="+encodeURIComponent(location.pathname+location.search));return false}
   state.session=session;
-  const ctx=await edge("dot-session-context",{requested_portal_code:"owner_operator"});
+  const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
+  const payload=window.S4UWithPortal?window.S4UWithPortal({page:page.replace('.html','')}):{page:page.replace('.html','')};
+  const boot=window.__S4U_OWNER_BOOTSTRAP__||await edge("owner-operator-bootstrap",payload);
+  window.__S4U_OWNER_BOOTSTRAP__=boot;
+  const ctx=boot.context||boot;
   const w=ctx.workspace||ctx.context||ctx;
   const portal=String(w.portal||ctx.portal_code||ctx.access?.portal_code||"");
-  if(portal!=="owner_operator" && String(w.owner_operator_id||"")==="") throw new Error("This account is not authorized for the Owner-Operator portal.");
+  if(portal!=="owner_operator" && String(w.owner_operator_id||w.owner_operator?.id||"")==="") throw new Error("This account is not authorized for the Owner-Operator portal.");
   state.context=w;
   state.entitlements=w.entitlements||ctx.entitlements||{};
   state.permissions=w.permissions||ctx.permissions||[];
   const org=document.getElementById("org-name");
-  if(org)org.textContent=w.organization_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
-  const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
-  const onboarding=await onboardingApi("status");
-  state.onboarding=onboarding;
-  if(!onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
-  if(onboarding.completed){
-    const clearinghouse=await clearinghouseApi("status");
+  if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
+  const onboarding=boot.onboarding||null;
+  if(onboarding){
+    state.onboarding=onboarding;
+    if(!onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
+  }else{
+    const od=await onboardingApi("status");state.onboarding=od;
+    if(!od.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
+  }
+  if(state.onboarding?.completed){
+    const clearinghouse=boot.clearinghouse||await clearinghouseApi("status");
     state.clearinghouse=clearinghouse;
     if(!clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/clearinghouse-setup.html");return false}
   }
   const required=featureByPage[page];
-  if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false){
-    throw new Error("This page is not included in your current Owner-Operator plan.");
-  }
+  if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false) throw new Error("This page is not included in your current Owner-Operator plan.");
   return true;
 }
 
@@ -217,7 +223,7 @@ function errorView(e){
   if(el)el.innerHTML=pageHead("OWNER-OPERATOR PORTAL","We could not load this page","The portal returned an error while loading your account.")+`<div class="card"><div class="status bad">Error</div><p>${esc(e.message||e)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
 }
 
-async function owner(action,extra={}){return edge("workforce-owner-portal",{action,...extra})}
+async function owner(action,extra={}){const payload=window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra};return edge("owner-operator-portal-fast",payload)}
 async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
 async function onboardingApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
@@ -233,7 +239,7 @@ async function clearinghouseApi(action,extra={}){
 }
 
 async function loadOnboarding(){
- const d=state.onboarding||await onboardingApi("status"),prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
+ let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
  const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
  if(d.completed){
    const proof=d.preemployment_proof,testReq=d.test_request;
@@ -357,7 +363,7 @@ async function loadClearinghouseSetup(){
  }
  root.innerHTML=pageHead("REQUIRED SETUP","Designate your C/TPA in the FMCSA Clearinghouse","Owner-operators must designate a C/TPA in the FMCSA Drug & Alcohol Clearinghouse. Complete the steps below, then confirm the designation in this portal.")+`
  <div class="card clearinghouse-callout"><div class="status warn">Required before portal access</div><h2>Designate: Workforce DOT | screenings4u</h2><p>Use the exact C/TPA name shown above when searching in the Clearinghouse.</p><div class="actions"><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/register">Register / Sign Up</a><a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/">Log In to Clearinghouse</a><a class="btn btn-secondary" target="_blank" rel="noopener noreferrer" href="https://clearinghouse.fmcsa.dot.gov/Resource/Index/Clearinghouse-Designate-CTPA">Official FMCSA Instructions</a></div></div>
- <div class="card"><h2>Clearinghouse checklist</h2><ol class="setup-checklist"><li><strong>Register or log in as the employer/owner-operator.</strong><span>If you are registering, indicate that you are an owner-operator when the Clearinghouse asks.</span></li><li><strong>Open your Employer Dashboard.</strong><span>Under <em>My Dashboard</em>, go to <strong>Manage → C/TPAs</strong>.</span></li><li><strong>Search for Workforce DOT | screenings4u.</strong><span>Use the C/TPA search field and select our registered C/TPA listing.</span></li><li><strong>Click Designate.</strong><span>Add Workforce DOT | screenings4u to your designated C/TPAs.</span></li><li><strong>Authorize the required functions.</strong><span>Select <strong>Report Violations</strong>, <strong>Report RTD Information</strong>, and <strong>Conduct Queries</strong>.</span></li><li><strong>Click Save.</strong><span>The Clearinghouse sends the C/TPA a request to accept the designation.</span></li></ol></div>
+ <div class="card"><h2>Clearinghouse checklist</h2><ol class="setup-checklist"><li><strong>Register or log in as the employer/owner-operator.</strong><span>If you are registering, indicate that you are an owner-operator when the Clearinghouse asks.</span></li><li><strong>Open your Employer Dashboard.</strong><span>Under <em>My Dashboard</em>, go to <strong>Manage → C/TPAs</strong></span></li><li><strong>Search for Workforce DOT | screenings4u.</strong><span>Use the C/TPA search field and select our registered C/TPA listing.</span></li><li><strong>Click Designate.</strong><span>Add Workforce DOT | screenings4u to your designated C/TPAs.</span></li><li><strong>Authorize the required functions.</strong><span>Select <strong>Report Violations</strong>, <strong>Report RTD Information</strong>, and <strong>Conduct Queries</strong>.</span></li><li><strong>Click Save.</strong><span>The Clearinghouse sends the C/TPA a request to accept the designation.</span></li></ol></div>
  <form class="card clearinghouse-confirm" id="clearinghouse-confirm-form"><h2>Confirm your designation</h2><p>After saving the designation in the FMCSA Clearinghouse, complete this checklist. We will keep your portal confirmation on file while the Clearinghouse designation is accepted/verified.</p><label class="checkline"><input type="checkbox" name="designated" value="yes" required><span>I designated <strong>Workforce DOT | screenings4u</strong> as my C/TPA.</span></label><label class="checkline"><input type="checkbox" name="report_violations" value="yes" required><span>I authorized <strong>Report Violations</strong>.</span></label><label class="checkline"><input type="checkbox" name="report_rtd" value="yes" required><span>I authorized <strong>Report RTD Information</strong>.</span></label><label class="checkline"><input type="checkbox" name="conduct_queries" value="yes" required><span>I authorized <strong>Conduct Queries</strong>.</span></label><label class="checkline"><input type="checkbox" name="certify" value="yes" required><span>I certify that I completed and saved these selections in the FMCSA Clearinghouse.</span></label><div id="clearinghouse-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Confirm Clearinghouse Setup</button></div></form>`;
  const form=document.getElementById("clearinghouse-confirm-form"),msg=document.getElementById("clearinghouse-msg");
  form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);msg.textContent="Clearinghouse designation confirmed. Opening your dashboard…";msg.className="form-message success";setTimeout(()=>location.replace("/dashboard.html"),600)}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});

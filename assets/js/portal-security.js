@@ -31,14 +31,14 @@ async function guard(){
   const requestContext=async()=>{
     const membership=localStorage.getItem('s4u_'+CODE+'_membership')||'';
     const subscription=localStorage.getItem('s4u_'+CODE+'_subscription')||'';
-    const r=await fetch(URL+'/functions/v1/owner-operator-session',{
+    const r=await fetch(URL+'/functions/v1/owner-operator-bootstrap',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':KEY},
       body:JSON.stringify(window.S4UWithPortal({portal_code:CODE,membership_id:membership||undefined,subscription_id:subscription||undefined,page:P.replace('.html','')}))
     });
     let d=await r.json().catch(()=>({}));
     if(r.status===401&&await refreshSession()){
-      const retry=await fetch(URL+'/functions/v1/owner-operator-session',{
+      const retry=await fetch(URL+'/functions/v1/owner-operator-bootstrap',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':KEY},
         body:JSON.stringify(window.S4UWithPortal({portal_code:CODE,membership_id:membership||undefined,subscription_id:subscription||undefined,page:P.replace('.html','')}))
@@ -86,7 +86,7 @@ async function guard(){
   if(!last||last<(Date.parse(session.user?.last_sign_in_at||'')||0)){last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{}}
   if(Date.now()-last>=IDLE){await logout();return}
   try{localStorage.setItem(KEY_LAST,String(last))}catch{}
-  bindActivity();schedule();document.documentElement.classList.remove('s4u-auth-pending');window.dispatchEvent(new CustomEvent('s4u:dot-authenticated',{detail:d}))
+  window.__S4U_OWNER_BOOTSTRAP__=d;window.__S4U_OWNER_AUTH_CONTEXT__=d.context||d;bindActivity();schedule();document.documentElement.classList.remove('s4u-auth-pending');window.dispatchEvent(new CustomEvent('s4u:dot-authenticated',{detail:d.context||d}))
 }
 const css=document.createElement('style');css.textContent='#s4u-idle-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,18,35,.72);z-index:2147483647;padding:20px}#s4u-idle-modal.open{display:flex}.s4u-idle-card{width:min(460px,100%);background:#fff;border-radius:18px;padding:28px;box-shadow:0 28px 80px rgba(0,0,0,.28);font-family:Arial,sans-serif;color:#102f55}.s4u-idle-mark{font-size:12px;font-weight:900;letter-spacing:.08em;color:#ff6b00;text-transform:uppercase}.s4u-idle-card h2{font-size:24px;margin:10px 0}.s4u-idle-card p{font-size:14px;line-height:1.55;color:#516174}.s4u-idle-count{display:flex;align-items:baseline;gap:9px;margin:20px 0}.s4u-idle-count strong{font-size:36px}.s4u-idle-count span{font-size:12px;color:#6b7788}.s4u-idle-actions{display:flex;gap:10px}.s4u-idle-actions button{flex:1;border:0;border-radius:10px;padding:12px 14px;font-weight:800;cursor:pointer}.s4u-idle-actions button:first-child{background:#102f55;color:#fff}.s4u-idle-actions button:last-child{background:#eef2f6;color:#102f55}';document.head.appendChild(css);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',guard,{once:true});else guard();
