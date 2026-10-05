@@ -2,7 +2,7 @@
 const P=location.pathname.split('/').pop()?.toLowerCase()||'index.html';
 if(['login.html','auth-handoff.html','workspace.html','404.html','forgot-password.html','reset-password.html'].includes(P)){document.documentElement.classList.remove('s4u-auth-pending');return}
 const C=window.PORTAL_CONFIG||window.S4U||{};const URL=C.workforceUrl||C.url;const KEY=C.workforceKey||C.key;const CODE=C.portalCode||C.portal_code;
-const IDLE=10*60*1000,WARN=60*1000,KEY_LAST='s4u_idle_last:'+location.hostname,BOOT_KEY='s4u_owner_bootstrap_cache',BOOT_TTL=15000;let last=Date.now(),warnOpen=false,timer=null,countTimer=null;
+const IDLE=10*60*1000,WARN=60*1000,KEY_LAST='s4u_idle_last:'+location.hostname,BOOT_KEY='s4u_owner_bootstrap_cache',BOOT_TTL=120000;let last=Date.now(),warnOpen=false,timer=null,countTimer=null,lastActivityWrite=0;
 const sb=window.S4UGetSupabaseClient?.();
 function safeLast(){const n=Number(localStorage.getItem(KEY_LAST)||0);return Number.isFinite(n)&&n>0?n:last}
 function setLast(){last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{};hideWarn();schedule()}
@@ -10,8 +10,8 @@ function modal(){let m=document.getElementById('s4u-idle-modal');if(m)return m;m
 function showWarn(){if(warnOpen)return;warnOpen=true;const m=modal();m.classList.add('open');let left=Math.max(0,Math.ceil((IDLE-(Date.now()-safeLast()))/1000));const el=m.querySelector('#s4u-idle-seconds');el.textContent=String(left);clearInterval(countTimer);countTimer=setInterval(()=>{left=Math.max(0,Math.ceil((IDLE-(Date.now()-safeLast()))/1000));el.textContent=String(left);if(left<=0)logout()},250)}
 function hideWarn(){warnOpen=false;document.getElementById('s4u-idle-modal')?.classList.remove('open');clearInterval(countTimer)}
 async function logout(){clearTimeout(timer);clearInterval(countTimer);try{await sb?.auth.signOut()}catch{};try{Object.keys(localStorage).filter(k=>k.startsWith('s4u_')||k.startsWith('sb-')).forEach(k=>localStorage.removeItem(k))}catch{};location.replace('/login.html?reason=inactive')}
-function schedule(){clearTimeout(timer);const age=Date.now()-safeLast();if(age>=IDLE){logout();return}if(age>=IDLE-WARN)showWarn();timer=setTimeout(schedule,Math.min(1000,Math.max(250,(IDLE-WARN)-age)))}
-function bindActivity(){['pointerdown','keydown','touchstart','scroll'].forEach(ev=>addEventListener(ev,()=>{if(!warnOpen)setLast()},{passive:true}));addEventListener('storage',e=>{if(e.key===KEY_LAST){last=safeLast();hideWarn();schedule()}})}
+function schedule(){clearTimeout(timer);const age=Date.now()-safeLast();if(age>=IDLE){logout();return}if(age>=IDLE-WARN){showWarn();timer=setTimeout(schedule,1000);return}hideWarn();timer=setTimeout(schedule,Math.max(1000,(IDLE-WARN)-age))}
+function bindActivity(){const mark=()=>{const now=Date.now();if(warnOpen||now-lastActivityWrite<5000)return;lastActivityWrite=now;setLast()};['pointerdown','keydown','touchstart','scroll'].forEach(ev=>addEventListener(ev,mark,{passive:true}));addEventListener('storage',e=>{if(e.key===KEY_LAST){last=safeLast();hideWarn();schedule()}})}
 async function guard(){
   if(!sb||!URL||!KEY||!CODE){location.replace('/login.html?reason=config');return}
   let {data:{session},error}=await sb.auth.getSession();

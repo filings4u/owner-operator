@@ -40,7 +40,10 @@ const featureByPage={
   "audit-history.html":"audit_history"
 };
 
-const state={session:null,context:null,entitlements:{},permissions:[]};
+const state={session:null,context:null,entitlements:{},permissions:[],onboarding:null,clearinghouse:null};
+const pageCache=new Map();
+const PAGE_CACHE_TTL=30000;
+let navigating=false;
 
 async function edge(name,body){
   async function validSession(forceRefresh=false){
@@ -210,8 +213,8 @@ async function guard(){
   if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
   state.onboarding=boot.onboarding||null;
   state.clearinghouse=boot.clearinghouse||null;
-  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
-  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/clearinghouse-setup.html");return false}
+  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){history.replaceState({},'', '/onboarding.html');return true}
+  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){navigatePortal("/clearinghouse-setup.html",{replace:true});return false}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false) throw new Error("This page is not included in your current Owner-Operator plan.");
   return true;
@@ -226,20 +229,27 @@ function table(headers,rows){
 }
 function errorView(e){
   const el=document.getElementById("page-content");
-  if(el)el.innerHTML=pageHead("OWNER-OPERATOR PORTAL","We could not load this page","The portal returned an error while loading your account.")+`<div class="card"><div class="status bad">Error</div><p>${esc(e.message||e)}</p><button class="btn btn-primary" onclick="location.reload()">Try again</button></div>`;
+  if(el)el.innerHTML=pageHead("OWNER-OPERATOR PORTAL","We could not load this page","The portal returned an error while loading your account.")+`<div class="card"><div class="status bad">Error</div><p>${esc(e.message||e)}</p><button class="btn btn-primary" id="page-retry-btn">Try again</button></div>`;
 }
 
-async function owner(action,extra={}){const payload=window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra};return edge("owner-operator-portal-fast",payload)}
+async function owner(action,extra={}){
+  const payload=window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra};
+  const cacheable=!extra||Object.keys(extra).length===0;
+  const key='owner:'+action;
+  if(cacheable){
+    const hit=pageCache.get(key);
+    if(hit&&Date.now()-hit.ts<PAGE_CACHE_TTL)return hit.data;
+  }
+  const data=await edge("owner-operator-portal-fast",payload);
+  if(cacheable)pageCache.set(key,{ts:Date.now(),data});
+  return data;
+}
 async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
 async function onboardingApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
   if(action==="status") return edge("owner-operator-actions",{...payload,action:"onboarding_status",page:"onboarding.html"});
   if(action==="complete_agreement") return edge("owner-operator-actions",{...payload,action:"complete_onboarding",page:"onboarding.html"});
   return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
-}
-
-async function onboardingProfileApi(action,extra={}){
-  return edge("owner-operator-onboarding-profile",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
 }
 async function clearinghouseApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
@@ -249,7 +259,7 @@ async function clearinghouseApi(action,extra={}){
 }
 
 async function loadOnboarding(){
- let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const profileState=await onboardingProfileApi("status").catch(()=>({prefill:{}}));const profilePrefill=profileState.prefill||{};const prefill={...(d.prefill||{}),...profilePrefill},agreement=d.agreement||null,root=document.getElementById("page-content");
+ let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
  const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
  if(d.completed){
    const proof=d.preemployment_proof,testReq=d.test_request;
@@ -268,27 +278,6 @@ async function loadOnboarding(){
    <p>Services are administered under 49 CFR Part 40 and the rules of the DOT agency applicable to your operation, including 49 CFR Part 382 for FMCSA-regulated motor carriers. Enrollment becomes effective only after the Agreement is accepted and all required enrollment conditions are satisfied.</p>
    <div class="agreement-callout"><strong>Pre-employment requirement:</strong> Before active random-pool enrollment, an Owner-Operator must have a qualifying negative DOT pre-employment drug test on file. You may upload an official negative result dated within the last 30 days. If you do not have one, you must order and complete a DOT drug test.</div>
    <form id="agreement-form" class="agreement-form">
-    <section class="owner-profile-section"><h3>Owner-Operator information</h3><p class="fine-print">Complete this information before signing your consortium agreement.</p><div class="form-grid">
-     <div class="field"><label>First Name <span aria-hidden="true">*</span></label><input name="first_name" value="${esc(prefill.first_name||'')}" required autocomplete="given-name"></div>
-     <div class="field"><label>Last Name <span aria-hidden="true">*</span></label><input name="last_name" value="${esc(prefill.last_name||'')}" required autocomplete="family-name"></div>
-     <div class="field"><label>USDOT Number <span aria-hidden="true">*</span></label><input name="dot_number" value="${esc(prefill.dot_number||'')}" required inputmode="numeric"></div>
-     <div class="field"><label>Operation <span aria-hidden="true">*</span></label><select name="operation_scope" id="operation-scope" required><option value="">Select...</option><option value="interstate" ${String(prefill.operation_scope||'').toLowerCase()==='interstate'?'selected':''}>Interstate</option><option value="intrastate" ${String(prefill.operation_scope||'').toLowerCase()==='intrastate'?'selected':''}>Intrastate</option></select></div>
-     <div class="field" id="mc-number-field"><label>MC Number <span id="mc-required-mark" aria-hidden="true"></span></label><input name="mc_number" value="${esc(prefill.mc_number||'')}"><small id="mc-help">Required for interstate operations; optional for intrastate operations.</small></div>
-     <div class="field"><label>Are you the Owner or Driver? <span aria-hidden="true">*</span></label><select name="role_capacity" id="role-capacity" required><option value="">Select...</option><option value="owner" ${String(prefill.role_capacity||'')==='owner'?'selected':''}>Owner (I employ a driver)</option><option value="driver" ${String(prefill.role_capacity||'')==='driver'?'selected':''}>Driver (I am not the owner)</option><option value="owner_driver" ${String(prefill.role_capacity||'')==='owner_driver'?'selected':''}>Owner & Driver</option></select></div>
-    </div>
-    <div id="self-driver-fields" class="conditional-fields"><h4>Your driver information</h4><div class="form-grid">
-     <div class="field"><label>CDL Number <span aria-hidden="true">*</span></label><input name="cdl_number" value="${esc(prefill.cdl_number||'')}"></div>
-     <div class="field"><label>CDL State <span aria-hidden="true">*</span></label><input name="cdl_state" maxlength="2" value="${esc(prefill.cdl_state||'')}" placeholder="IL"></div>
-     <div class="field"><label>Date of Birth <span aria-hidden="true">*</span></label><input type="date" name="birthdate" value="${esc(prefill.birthdate||'')}"></div>
-    </div></div>
-    <div id="employee-driver-fields" class="conditional-fields"><h4>Driver information</h4><p class="fine-print">Add the driver who will be enrolled in the DOT program.</p><div class="form-grid">
-     <div class="field"><label>Driver First Name <span aria-hidden="true">*</span></label><input name="driver_first_name" value="${esc(prefill.driver_first_name||'')}"></div>
-     <div class="field"><label>Driver Last Name <span aria-hidden="true">*</span></label><input name="driver_last_name" value="${esc(prefill.driver_last_name||'')}"></div>
-     <div class="field"><label>CDL Number <span aria-hidden="true">*</span></label><input name="driver_cdl_number" value="${esc(prefill.driver_cdl_number||'')}"></div>
-     <div class="field"><label>CDL State <span aria-hidden="true">*</span></label><input name="driver_cdl_state" maxlength="2" value="${esc(prefill.driver_cdl_state||'')}" placeholder="IL"></div>
-     <div class="field"><label>Date of Birth <span aria-hidden="true">*</span></label><input type="date" name="driver_birthdate" value="${esc(prefill.driver_birthdate||'')}"></div>
-    </div></div>
-    </section>
     <section><h3>Company & regulatory program</h3><div class="form-grid">
      <div class="field full"><label>Company legal name</label><input name="company_name" value="${company}" required></div>
      <div class="field full"><label>DOT industry / agency</label><div class="agency-grid">
@@ -335,28 +324,20 @@ async function loadOnboarding(){
  root.innerHTML=pageHead("REQUIRED ONBOARDING","Owner-Operator onboarding","Complete both required steps before using the rest of the Owner-Operator portal.")+`<div class="onboarding-progress"><div class="${agreementDone?'done':'active'}"><span>1</span><strong>Consortium Agreement</strong></div><div class="${preemploymentDone?'done':agreementDone?'active':''}"><span>2</span><strong>Pre-employment Test</strong></div></div><div class="agreement-wrap">${agreementSection}${agreementDone?proofSection:''}</div>`;
  if(!agreementDone){
    const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
-   const op=form.elements.operation_scope,role=form.elements.role_capacity,mc=form.elements.mc_number,selfFields=document.getElementById('self-driver-fields'),employeeFields=document.getElementById('employee-driver-fields'),mcMark=document.getElementById('mc-required-mark');
-   const syncProfileFields=()=>{
-     const interstate=op.value==='interstate';mc.required=interstate;mcMark.textContent=interstate?'*':'';
-     const v=role.value;selfFields.style.display=(v==='driver'||v==='owner_driver')?'block':'none';employeeFields.style.display=v==='owner'?'block':'none';
-     ['cdl_number','cdl_state','birthdate'].forEach(n=>form.elements[n].required=(v==='driver'||v==='owner_driver'));
-     ['driver_first_name','driver_last_name','driver_cdl_number','driver_cdl_state','driver_birthdate'].forEach(n=>form.elements[n].required=v==='owner');
-   };
-   op.addEventListener('change',syncProfileFields);role.addEventListener('change',syncProfileFields);syncProfileFields();
    form.querySelectorAll('input[name="industry_code"]').forEach(el=>el.addEventListener('change',()=>{document.getElementById('other-industry-field').style.display=el.value==='OTHER'&&el.checked?'block':'none'}));
-   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';const profile={first_name:agreement.first_name,last_name:agreement.last_name,dot_number:agreement.dot_number,operation_scope:agreement.operation_scope,mc_number:agreement.mc_number,role_capacity:agreement.role_capacity,cdl_number:agreement.cdl_number,cdl_state:agreement.cdl_state,birthdate:agreement.birthdate,driver_first_name:agreement.driver_first_name,driver_last_name:agreement.driver_last_name,driver_cdl_number:agreement.driver_cdl_number,driver_cdl_state:agreement.driver_cdl_state,driver_birthdate:agreement.driver_birthdate};try{const profileSaved=await onboardingProfileApi('save',{profile});if(profileSaved?.error)throw new Error(profileSaved.error);const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';location.href='/onboarding.html?step=preemployment#preemployment'}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';navigatePortal('/onboarding.html?step=preemployment#preemployment')}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
  } else if(!preemploymentDone){
    const form=document.getElementById('proof-form');
-   form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),650)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
+   form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';navigatePortal('/dashboard.html',{replace:true})}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
  }
 }
 
 async function loadDrugTestOrder(){
  const d=state.onboarding||await onboardingApi('status'),p=d.prefill||{},root=document.getElementById('page-content');
- if(d.preemployment_complete){location.replace('/onboarding.html');return}
- if(!d.agreement_completed){location.replace('/onboarding.html');return}
+ if(d.preemployment_complete){navigatePortal('/onboarding.html',{replace:true});return}
+ if(!d.agreement_completed){navigatePortal('/onboarding.html',{replace:true});return}
  const paidOrder=new URLSearchParams(location.search).get('order_id')||localStorage.getItem('s4u_owner_operator_paid_test_order')||'';
- if(!d.test_included&&!paidOrder){location.replace(d.purchase_url||'/checkout.html?service=dot_5_panel_urine');return}
+ if(!d.test_included&&!paidOrder){await navigatePortal(d.purchase_url||'/checkout.html?service=dot_5_panel_urine',{replace:true});return}
  root.innerHTML=pageHead(d.test_included?'INCLUDED TEST':'PAID TEST','Order your DOT 5-panel drug test','Order your DOT 5-panel drug test','Provide the information below. We will use your current or future location to identify the closest available collection site.')+`
  <div class="card order-test-card"><div class="agreement-callout"><strong>${d.test_included?'Included with '+esc(p.plan_name||'your plan'):'Paid DOT 5-panel drug test'}.</strong> ${d.test_included?'There is no additional charge for this included pre-employment test request.':'Your portal purchase has been received. Complete this form so Workforce DOT can schedule the closest available collection site.'}</div>
  <form id="drug-test-order-form"><div class="form-grid">
@@ -368,14 +349,14 @@ async function loadDrugTestOrder(){
   <div class="field full"><h3>Where are you now, or where will you be for testing?</h3><p class="field-help">Use the address where you are now or where you will be. We will use this location to schedule the closest available collection site.</p></div><div class="field full"><label>Street address</label><input name="current_address_line1" required></div><div class="field full"><label>Address line 2 <span class="optional">Optional</span></label><input name="current_address_line2"></div><div class="field"><label>City</label><input name="current_city" required></div><div class="field"><label>State</label><input name="current_state" required></div><div class="field"><label>ZIP code</label><input name="current_postal_code" required></div>
   <div class="field full"><div id="drug-test-order-msg" class="form-message"></div><div class="actions"><a class="btn btn-secondary" href="/onboarding.html">Back</a><button class="btn btn-primary" type="submit">Submit Test Order</button></div></div>
  </div></form></div>`;
- document.getElementById('drug-test-order-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget,msg=document.getElementById('drug-test-order-msg'),btn=form.querySelector('button[type="submit"]');msg.textContent='Submitting your included test order…';msg.className='form-message';btn.disabled=true;try{const order=Object.fromEntries(new FormData(form).entries());await onboardingApi('create_test_order',{order,paid_order_id:paidOrder});msg.textContent='Your test request has been submitted. Opening your dashboard…';msg.className='form-message success';setTimeout(()=>location.replace('/dashboard.html'),700)}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error';btn.disabled=false}});
+ document.getElementById('drug-test-order-form').addEventListener('submit',async e=>{e.preventDefault();const form=e.currentTarget,msg=document.getElementById('drug-test-order-msg'),btn=form.querySelector('button[type="submit"]');msg.textContent='Submitting your included test order…';msg.className='form-message';btn.disabled=true;try{const order=Object.fromEntries(new FormData(form).entries());await onboardingApi('create_test_order',{order,paid_order_id:paidOrder});msg.textContent='Your test request has been submitted. Opening your dashboard…';msg.className='form-message success';navigatePortal('/dashboard.html',{replace:true})}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error';btn.disabled=false}});
 }
 
 async function loadCheckout(){
  const d=state.onboarding||await onboardingApi('status'),p=d.prefill||{},root=document.getElementById('page-content');
- if(d.preemployment_complete){location.replace('/onboarding.html');return}
- if(!d.agreement_completed){location.replace('/onboarding.html');return}
- if(d.test_included){location.replace('/order-drug-test.html');return}
+ if(d.preemployment_complete){navigatePortal('/onboarding.html',{replace:true});return}
+ if(!d.agreement_completed){navigatePortal('/onboarding.html',{replace:true});return}
+ if(d.test_included){await navigatePortal('/order-drug-test.html',{replace:true});return}
  root.innerHTML=pageHead('SECURE CHECKOUT','Purchase your DOT 5-panel drug test','Complete payment securely inside your Owner-Operator portal. You will remain in the portal for the entire process.')+`
  <div class="grid grid-2 checkout-portal-grid">
   <div class="card"><div class="step-kicker">DOT PRE-EMPLOYMENT TEST</div><h2>DOT 5-Panel Urine Drug Test</h2><p>Required when you do not have an acceptable official negative DOT drug-test result dated within the last 30 days.</p><div class="price-line"><strong>$59.95</strong><span>one-time</span></div><ul class="agreement-list"><li>DOT-regulated 5-panel urine test</li><li>Collection-site scheduling support</li><li>Results linked to your Owner-Operator account</li><li>Secure portal workflow</li></ul><div class="agreement-callout"><strong>Seller:</strong> Workforce DOT, LLC<br><span>A subsidiary of screenings4u, LLC</span></div></div>
@@ -405,7 +386,7 @@ async function loadClearinghouseSetup(){
  <div class="card"><h2>Clearinghouse checklist</h2><ol class="setup-checklist"><li><strong>Register or log in as the employer/owner-operator.</strong><span>If you are registering, indicate that you are an owner-operator when the Clearinghouse asks.</span></li><li><strong>Open your Employer Dashboard.</strong><span>Under <em>My Dashboard</em>, go to <strong>Manage → C/TPAs</strong></span></li><li><strong>Search for Workforce DOT | screenings4u.</strong><span>Use the C/TPA search field and select our registered C/TPA listing.</span></li><li><strong>Click Designate.</strong><span>Add Workforce DOT | screenings4u to your designated C/TPAs.</span></li><li><strong>Authorize the required functions.</strong><span>Select <strong>Report Violations</strong>, <strong>Report RTD Information</strong>, and <strong>Conduct Queries</strong>.</span></li><li><strong>Click Save.</strong><span>The Clearinghouse sends the C/TPA a request to accept the designation.</span></li></ol></div>
  <form class="card clearinghouse-confirm" id="clearinghouse-confirm-form"><h2>Confirm your designation</h2><p>After saving the designation in the FMCSA Clearinghouse, complete this checklist. We will keep your portal confirmation on file while the Clearinghouse designation is accepted/verified.</p><label class="checkline"><input type="checkbox" name="designated" value="yes" required><span>I designated <strong>Workforce DOT | screenings4u</strong> as my C/TPA.</span></label><label class="checkline"><input type="checkbox" name="report_violations" value="yes" required><span>I authorized <strong>Report Violations</strong>.</span></label><label class="checkline"><input type="checkbox" name="report_rtd" value="yes" required><span>I authorized <strong>Report RTD Information</strong>.</span></label><label class="checkline"><input type="checkbox" name="conduct_queries" value="yes" required><span>I authorized <strong>Conduct Queries</strong>.</span></label><label class="checkline"><input type="checkbox" name="certify" value="yes" required><span>I certify that I completed and saved these selections in the FMCSA Clearinghouse.</span></label><div id="clearinghouse-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Confirm Clearinghouse Setup</button></div></form>`;
  const form=document.getElementById("clearinghouse-confirm-form"),msg=document.getElementById("clearinghouse-msg");
- form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);msg.textContent="Clearinghouse designation confirmed. Opening your dashboard…";msg.className="form-message success";setTimeout(()=>location.replace("/dashboard.html"),600)}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});
+ form.addEventListener("submit",async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),fd=new FormData(form);msg.textContent="Saving your Clearinghouse confirmation…";msg.className="form-message";btn.disabled=true;try{const designation={designated:fd.get("designated")==="yes",report_violations:fd.get("report_violations")==="yes",report_rtd:fd.get("report_rtd")==="yes",conduct_queries:fd.get("conduct_queries")==="yes",certify:fd.get("certify")==="yes"};const saved=await clearinghouseApi("confirm",{designation});if(saved?.error)throw new Error(saved.error);msg.textContent="Clearinghouse designation confirmed. Opening your dashboard…";msg.className="form-message success";navigatePortal("/dashboard.html",{replace:true})}catch(err){msg.textContent=err?.message||String(err);msg.className="form-message error";btn.disabled=false}});
 }
 
 async function loadDashboard(){
@@ -544,7 +525,7 @@ async function loadUsers(){
  document.getElementById("invite-cancel")?.addEventListener("click",()=>document.getElementById("invite-popup").classList.remove("open"));
  document.getElementById("invite-form")?.addEventListener("submit",async e=>{
    e.preventDefault();const member=Object.fromEntries(new FormData(e.currentTarget).entries()),msg=document.getElementById("invite-msg");msg.textContent="Sending…";
-   try{await members("invite",{member});msg.textContent="Invitation sent.";msg.className="success";setTimeout(()=>location.reload(),650)}catch(err){msg.textContent=err.message;msg.className="error"}
+   try{await members("invite",{member});msg.textContent="Invitation sent.";msg.className="success";pageCache.delete('owner:members'); setTimeout(()=>loadUsers().catch(errorView),150)}catch(err){msg.textContent=err.message;msg.className="error"}
  });
 }
 
@@ -559,20 +540,83 @@ async function loadSupport(){
  `<div class="grid grid-2"><div class="card"><h2>Software support</h2><p>Email: <a href="mailto:support@screenings4u.com">support@screenings4u.com</a></p><p>Phone: <a href="tel:7732457009">(773) 245-7009</a></p></div><div class="card"><h2>FMCSA resources</h2><p>Use official FMCSA resources for regulatory guidance. Screenings4u provides software and administrative tools, not legal advice.</p><a class="btn btn-secondary" target="_blank" rel="noopener" href="https://www.fmcsa.dot.gov/regulations/drug-alcohol-testing/owner-operator">FMCSA Owner-Operator guidance</a></div></div>`;
 }
 
+const LOADERS={
+  "onboarding.html":loadOnboarding,"clearinghouse-setup.html":loadClearinghouseSetup,"checkout.html":loadCheckout,
+  "order-drug-test.html":loadDrugTestOrder,"dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,
+  "programs.html":loadPrograms,"consortium.html":loadConsortium,"testing.html":loadTesting,"results.html":loadResults,
+  "compliance.html":loadCompliance,"rtd.html":loadRTD,"documents.html":loadDocuments,"reports.html":loadReports,
+  "billing.html":loadBilling,"notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
+};
+function currentPage(){return (location.pathname.split("/").pop()||"dashboard.html").toLowerCase()}
+function syncActiveNav(){
+  const page=currentPage();
+  document.querySelectorAll('.side .nav a,.mobile-nav-links a').forEach(a=>{
+    const href=(a.getAttribute('href')||'').split('?')[0].split('#')[0].replace(/^\//,'').toLowerCase();
+    a.classList.toggle('active',href===page);
+  });
+  const current=(NAV.find(x=>x[0]===page)||[])[2]||'Portal';
+  const chip=document.querySelector('.mobile-nav-current');if(chip)chip.textContent=current;
+}
+function allowedRoute(page){
+  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page))return '/onboarding.html';
+  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page))return '/clearinghouse-setup.html';
+  return null;
+}
+async function renderCurrentPage(){
+  let page=currentPage();
+  const redirect=allowedRoute(page);
+  if(redirect&&page!==redirect.replace(/^\//,'')){history.replaceState({},'',redirect);page=currentPage()}
+  syncActiveNav();
+  const root=document.getElementById('page-content');
+  if(root)root.setAttribute('aria-busy','true');
+  const required=featureByPage[page];
+  if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false)throw new Error("This page is not included in your current Owner-Operator plan.");
+  const loader=LOADERS[page]||loadDashboard;
+  await loader();
+  if(root)root.setAttribute('aria-busy','false');
+}
+async function navigatePortal(url,{replace=false}={}){
+  if(navigating)return;
+  const u=new URL(url,location.href);
+  if(u.origin!==location.origin){location.href=u.href;return}
+  const next=(u.pathname.split('/').pop()||'dashboard.html').toLowerCase();
+  const forced=allowedRoute(next);
+  if(forced){u.pathname=forced;u.search='';u.hash=''}
+  const same=u.pathname===location.pathname&&u.search===location.search&&u.hash===location.hash;
+  if(same)return;
+  navigating=true;
+  try{
+    if(replace)history.replaceState({},'',u.pathname+u.search+u.hash);else history.pushState({},'',u.pathname+u.search+u.hash);
+    syncActiveNav();
+    await renderCurrentPage();
+    window.scrollTo(0,0);
+  }catch(e){console.error(e);errorView(e)}finally{navigating=false}
+}
+function bindSpaNavigation(){
+  if(window.__S4U_OWNER_SPA_BOUND__)return;window.__S4U_OWNER_SPA_BOUND__=true;
+  document.addEventListener('click',e=>{
+    const a=e.target.closest('a[href]');if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+    if(a.target==='_blank'||a.hasAttribute('download'))return;
+    const u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
+    if(!/\.html$/i.test(u.pathname))return;
+    e.preventDefault();navigatePortal(u.pathname+u.search+u.hash);
+  });
+  addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
+  document.addEventListener('pointerenter',e=>{
+    const a=e.target.closest?.('a[href]');if(!a)return;
+    const page=(new URL(a.href,location.href).pathname.split('/').pop()||'').toLowerCase();
+    const map={"dashboard.html":"overview","profile.html":"profile","drivers.html":"drivers","programs.html":"programs","consortium.html":"consortium","testing.html":"testing","results.html":"results","compliance.html":"compliance","rtd.html":"rtd","documents.html":"documents","reports.html":"reports","billing.html":"billing","notifications.html":"notifications","audit-history.html":"audit"};
+    const action=map[page];if(action&&!pageCache.has('owner:'+action))owner(action).catch(()=>{});
+  },true);
+}
 async function initPage(){
- renderShell();
- try{
-   if(!await guard())return;
-   const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
-   const loaders={
-    "onboarding.html":loadOnboarding,"clearinghouse-setup.html":loadClearinghouseSetup,"checkout.html":loadCheckout,"order-drug-test.html":loadDrugTestOrder,"dashboard.html":loadDashboard,"profile.html":loadProfile,"drivers.html":loadDrivers,"programs.html":loadPrograms,
-    "consortium.html":loadConsortium,"testing.html":loadTesting,"results.html":loadResults,"compliance.html":loadCompliance,
-    "rtd.html":loadRTD,"documents.html":loadDocuments,"reports.html":loadReports,"billing.html":loadBilling,
-    "notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
-   };
-   await (loaders[page]||loadDashboard)();
- }catch(e){console.error(e);errorView(e)}
+  renderShell();bindSpaNavigation();
+  try{
+    if(!await guard())return;
+    await renderCurrentPage();
+    document.getElementById('page-retry-btn')?.addEventListener('click',()=>renderCurrentPage().catch(errorView));
+  }catch(e){console.error(e);errorView(e)}
 }
 
-window.OwnerPortal={supabase,edge,initPage,esc,status,fmt,money};
+window.OwnerPortal={supabase,edge,initPage,navigate:navigatePortal,esc,status,fmt,money};
 })();

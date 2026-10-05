@@ -265,10 +265,10 @@ html{scroll-behavior:auto}
 .clearinghouse-callout .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 @media(min-width:1025px){.main{margin-left:250px}.content{padding:24px 28px 40px}.page{max-width:1200px;margin:0 auto}}
 
-/* Owner-Operator onboarding profile fields */
-.owner-profile-section{border-bottom:1px solid #dbe4ef;padding-bottom:22px;margin-bottom:22px}
-.owner-profile-section h4{margin:18px 0 10px;color:#102f55;font-size:15px}
-.conditional-fields{display:none;margin-top:16px;padding:16px;border:1px solid #dbe4ef;border-radius:12px;background:#f8fbff}
-.agreement-form select{width:100%;min-height:42px;border:1px solid #bfd0e3;border-radius:9px;background:#fff;color:#102f55;padding:9px 11px;font:inherit}
-.agreement-form input[required],.agreement-form select[required]{border-color:#a9bfd7}
-@media(max-width:760px){.conditional-fields{padding:12px}.owner-profile-section .form-grid{grid-template-columns:1fr}}
+/* 2026-10-05: stable desktop shell — fixed sidebar already occupies the first grid column. */
+@media(min-width:1025px){
+  .main{margin-left:0!important;grid-column:2!important;min-width:0!important}
+  .content{width:100%!important;max-width:none!important;padding:22px 28px 40px!important}
+}
+/* Route changes render inside the existing shell; avoid visual flashes while data resolves. */
+#page-content[aria-busy="true"]{opacity:.985}
