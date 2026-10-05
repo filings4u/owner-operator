@@ -272,3 +272,40 @@ html{scroll-behavior:auto}
 }
 /* Route changes render inside the existing shell; avoid visual flashes while data resolves. */
 #page-content[aria-busy="true"]{opacity:.985}
+
+/* ============================================================
+   Clearinghouse setup — final alignment pass
+   ============================================================ */
+.clearinghouse-page-wrap{width:min(100%,1080px);margin:0 auto 44px;display:grid;gap:18px}
+.clearinghouse-page-wrap>.card{width:100%;max-width:none;margin:0;box-sizing:border-box}
+.clearinghouse-callout,.clearinghouse-confirm,.clearinghouse-complete{max-width:none!important;margin:0!important}
+.clearinghouse-callout{padding:24px 26px;border-left:4px solid var(--orange,#ef6c00)}
+.clearinghouse-callout h2,.clearinghouse-confirm h2{margin:8px 0 8px;line-height:1.25}
+.clearinghouse-callout p,.clearinghouse-confirm>p{margin:0 0 16px;line-height:1.55;color:var(--muted,#63768c)}
+.clearinghouse-callout .actions{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 0}
+.clearinghouse-callout .actions .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.clearinghouse-checklist-card{padding:24px 26px}
+.clearinghouse-checklist-card h2{margin:0 0 14px}
+.setup-checklist{counter-reset:clearstep;list-style:none!important;margin:0!important;padding:0!important;display:grid!important;gap:0!important;max-width:none!important}
+.setup-checklist li{counter-increment:clearstep;display:grid!important;grid-template-columns:34px minmax(0,1fr);column-gap:12px;row-gap:3px;padding:13px 0!important;margin:0!important;border-bottom:1px solid #e8eef5;color:#173653;line-height:1.45}
+.setup-checklist li:last-child{border-bottom:0}
+.setup-checklist li::before{content:counter(clearstep);grid-row:1 / span 2;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef4fa;color:#123a63;font-weight:900;font-size:13px;margin-top:1px}
+.setup-checklist li>strong{display:block!important;margin:0!important;font-size:15px;color:#102f55;line-height:1.4}
+.setup-checklist li>span{display:block!important;margin:0!important;color:#61758a;line-height:1.5}
+.setup-checklist li>span strong{display:inline!important;margin:0!important;font-size:inherit!important;line-height:inherit!important}
+.clearinghouse-confirm{padding:24px 26px}
+.clearinghouse-confirm .checkline{display:grid!important;grid-template-columns:22px minmax(0,1fr);align-items:start;gap:11px;margin:10px 0!important;padding:13px 14px!important;border:1px solid #dce6ef;border-radius:10px;background:#f8fbfe}
+.clearinghouse-confirm .checkline input{width:18px!important;height:18px!important;margin:1px 0 0!important}
+.clearinghouse-confirm .checkline span{display:block;min-width:0;line-height:1.45;color:#173653}
+.clearinghouse-confirm .checkline span strong{display:inline}
+.clearinghouse-confirm .actions{margin-top:18px}
+@media(min-width:821px){
+  .page-head{width:min(100%,1080px);margin-left:auto;margin-right:auto}
+}
+@media(max-width:700px){
+  .clearinghouse-page-wrap{gap:14px;margin-bottom:28px}
+  .clearinghouse-callout,.clearinghouse-checklist-card,.clearinghouse-confirm{padding:18px}
+  .clearinghouse-callout .actions{display:grid;grid-template-columns:1fr}
+  .clearinghouse-callout .actions .btn{width:100%}
+  .setup-checklist li{grid-template-columns:30px minmax(0,1fr);column-gap:10px;padding:11px 0!important}
+}
