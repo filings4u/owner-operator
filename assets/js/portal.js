@@ -626,6 +626,7 @@ const LOADERS={
   "billing.html":loadBilling,"notifications.html":loadNotifications,"users.html":loadUsers,"audit-history.html":loadAudit,"support.html":loadSupport
 };
 function warmPortalCache(){
+  if(state.onboarding && !state.onboarding.completed)return;
   if(window.__S4U_OWNER_CACHE_WARMING__)return;
   window.__S4U_OWNER_CACHE_WARMING__=true;
   const run=async()=>{
@@ -701,6 +702,7 @@ function bindSpaNavigation(){
   });
   addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
   document.addEventListener('pointerenter',e=>{
+    if(state.onboarding && !state.onboarding.completed)return;
     const a=e.target.closest?.('a[href]');if(!a)return;
     const page=(new URL(a.href,location.href).pathname.split('/').pop()||'').toLowerCase();
     const map={"dashboard.html":"overview","profile.html":"profile","drivers.html":"drivers","programs.html":"programs","consortium.html":"consortium","testing.html":"testing","results.html":"results","compliance.html":"compliance","rtd.html":"rtd","documents.html":"documents","reports.html":"reports","billing.html":"billing","notifications.html":"notifications","audit-history.html":"audit"};
