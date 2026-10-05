@@ -251,6 +251,10 @@ async function onboardingApi(action,extra={}){
   if(action==="complete_agreement") return edge("owner-operator-actions",{...payload,action:"complete_onboarding",page:"onboarding.html"});
   return edge("owner-operator-onboarding",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
 }
+async function onboardingProfileApi(action,extra={}){
+  return edge("owner-operator-onboarding-profile",window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra});
+}
+
 async function clearinghouseApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
   if(action==="status") return edge("owner-operator-actions",{...payload,action:"clearinghouse_status",page:"clearinghouse-setup.html"});
@@ -259,9 +263,20 @@ async function clearinghouseApi(action,extra={}){
 }
 
 async function loadOnboarding(){
- let d=state.onboarding||null;if(!d?.prefill)d=await onboardingApi("status");state.onboarding=d;const prefill=d.prefill||{},agreement=d.agreement||null,root=document.getElementById("page-content");
- const agreementDone=!!d.agreement_completed,preemploymentDone=!!d.preemployment_complete;
- if(d.completed){
+ const root=document.getElementById("page-content");
+ let d=state.onboarding||null;
+ let profileState=state.onboardingProfile||null;
+ if(!d?.prefill||!profileState){
+   const tasks=[];
+   if(!d?.prefill)tasks.push(onboardingApi("status").then(x=>{d=x;state.onboarding=x}));
+   if(!profileState)tasks.push(onboardingProfileApi("status").then(x=>{profileState=x;state.onboardingProfile=x}));
+   await Promise.all(tasks);
+ }
+ const prefill=d?.prefill||{},agreement=d?.agreement||null,profilePrefill=profileState?.prefill||{};
+ const profileDone=profileState?.completed===true||profileState?.locked===true;
+ const agreementDone=!!d?.agreement_completed,preemploymentDone=!!d?.preemployment_complete;
+
+ if(d?.completed&&profileDone){
    const proof=d.preemployment_proof,testReq=d.test_request;
    const companyName=esc(agreement?.company_name||prefill.company_name||"Owner-Operator");
    const signedDate=agreement?.signed_at?fmt(agreement.signed_at):"On file";
@@ -271,48 +286,55 @@ async function loadOnboarding(){
     <section class="card completion-hero">
       <div class="completion-hero__badge">Completed</div>
       <div class="completion-hero__header">
-        <div class="completion-hero__copy">
-          <h2>${companyName}</h2>
-          <p>Your Owner-Operator onboarding has been submitted successfully and your portal is ready for the next required step.</p>
-        </div>
-        <div class="completion-hero__next">
-          <div class="completion-next-label">Next required step</div>
-          <h3>Clearinghouse Setup</h3>
-          <p>Designate Workforce DOT | screenings4u as your C/TPA in the FMCSA Clearinghouse.</p>
-          <div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div>
-        </div>
+        <div class="completion-hero__copy"><h2>${companyName}</h2><p>Your Owner-Operator onboarding has been submitted successfully and your portal is ready for the next required step.</p></div>
+        <div class="completion-hero__next"><div class="completion-next-label">Next required step</div><h3>Clearinghouse Setup</h3><p>Designate Workforce DOT | screenings4u as your C/TPA in the FMCSA Clearinghouse.</p><div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>
       </div>
     </section>
     <div class="completion-grid">
-      <section class="card completion-panel">
-        <div class="section-kicker">STATUS SUMMARY</div>
-        <h3>What’s on file</h3>
-        <div class="completion-status-grid">
-          <div class="completion-status-item success"><span class="completion-status-label">Consortium agreement</span><strong>${agreementDone?"Signed":"Submitted"}</strong><small>${signedDate}</small></div>
-          <div class="completion-status-item success"><span class="completion-status-label">Pre-employment requirement</span><strong>${preemploymentText}</strong><small>${proof?"Pending verification":testReq?"Scheduling pending":"Complete"}</small></div>
-          <div class="completion-status-item pending"><span class="completion-status-label">Clearinghouse designation</span><strong>Still required</strong><small>Complete next to activate representation workflow</small></div>
-        </div>
-      </section>
-      <section class="card completion-panel">
-        <div class="section-kicker">NEXT ACTION</div>
-        <h3>Before you move forward</h3>
-        <p>In order for Workforce DOT | screenings4u to represent you, you must designate us as your C/TPA in the FMCSA Drug & Alcohol Clearinghouse.</p>
-        <ul class="completion-checklist">
-          <li>Register or sign in to the FMCSA Clearinghouse</li>
-          <li>Search for <strong>Workforce DOT | screenings4u</strong></li>
-          <li>Designate us as your C/TPA</li>
-          <li>Return here and confirm the setup</li>
-        </ul>
-        <div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Go to Clearinghouse Setup</a><a class="btn btn-secondary" href="/dashboard.html">Go to Dashboard</a></div>
-      </section>
+      <section class="card completion-panel"><div class="section-kicker">STATUS SUMMARY</div><h3>What’s on file</h3><div class="completion-status-grid">
+        <div class="completion-status-item success"><span class="completion-status-label">Owner / driver information</span><strong>Locked & on file</strong><small>Changes require Support.</small></div>
+        <div class="completion-status-item success"><span class="completion-status-label">Consortium agreement</span><strong>${agreementDone?"Signed":"Submitted"}</strong><small>${signedDate}</small></div>
+        <div class="completion-status-item success"><span class="completion-status-label">Pre-employment requirement</span><strong>${preemploymentText}</strong><small>${proof?"Pending verification":testReq?"Scheduling pending":"Complete"}</small></div>
+      </div></section>
+      <section class="card completion-panel"><div class="section-kicker">NEXT ACTION</div><h3>Before you move forward</h3><p>In order for Workforce DOT | screenings4u to represent you, you must designate us as your C/TPA in the FMCSA Drug & Alcohol Clearinghouse.</p><ul class="completion-checklist"><li>Register or sign in to the FMCSA Clearinghouse</li><li>Search for <strong>Workforce DOT | screenings4u</strong></li><li>Designate us as your C/TPA</li><li>Return here and confirm the setup</li></ul><div class="completion-next-actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Go to Clearinghouse Setup</a><a class="btn btn-secondary" href="/dashboard.html">Go to Dashboard</a></div></section>
     </div>
    </div>`;
    return;
  }
+
  const company=esc(prefill.company_name||""),authorized=esc(prefill.authorized_name||""),industry=String(prefill.industry_code||"FMCSA").toUpperCase();
  const checked=v=>industry===v?'checked':'';
+ const profileSection=profileDone?`
+  <div class="card onboarding-step complete-step"><div class="status">Step 1 complete</div><h2>Owner / driver information</h2><p>Your identity, DOT operating information, and driver details are locked and on file. Contact Support if a correction is required.</p></div>`:`
+  <div class="card onboarding-step profile-step-card" id="profile-step">
+   <div class="step-kicker">STEP 1 · REQUIRED</div>
+   <div class="profile-step-title"><div><h2>Owner / driver information</h2><p>Enter the information Workforce DOT will use for your Owner-Operator account and driver record.</p></div><div class="lock-tooltip" tabindex="0" title="After Step 1 is submitted, these fields are permanently locked in the portal. Contact Support if a correction is needed."><span>i</span><div class="lock-tooltip__bubble">After you submit Step 1, this information is locked and cannot be changed in the portal. Contact Support if a correction is required.</div></div></div>
+   <div class="profile-lock-notice"><strong>Important:</strong> Verify everything carefully before continuing. Once submitted, your name, USDOT/MC information, operating scope, role and CDL details are locked. Only Support can correct them.</div>
+   <form id="onboarding-profile-form" class="form-grid onboarding-profile-form">
+    <div class="field"><label>First Name <span class="req">*</span></label><input name="first_name" value="${esc(profilePrefill.first_name||'')}" required></div>
+    <div class="field"><label>Last Name <span class="req">*</span></label><input name="last_name" value="${esc(profilePrefill.last_name||'')}" required></div>
+    <div class="field"><label>USDOT Number <span class="req">*</span></label><input name="dot_number" value="${esc(profilePrefill.dot_number||'')}" inputmode="numeric" required></div>
+    <div class="field"><label>Operation <span class="req">*</span></label><select name="operation_scope" required><option value="">Select operation</option><option value="interstate" ${profilePrefill.operation_scope==='interstate'?'selected':''}>Interstate</option><option value="intrastate" ${profilePrefill.operation_scope==='intrastate'?'selected':''}>Intrastate</option></select></div>
+    <div class="field" id="mc-number-field"><label>MC Number <span id="mc-required" class="req" style="display:none">*</span> <span id="mc-optional" class="optional">Optional for Intrastate</span></label><input name="mc_number" value="${esc(profilePrefill.mc_number||'')}"></div>
+    <div class="field"><label>Are you the Owner or the Driver? <span class="req">*</span></label><select name="role_capacity" required><option value="">Select role</option><option value="owner" ${profilePrefill.role_capacity==='owner'?'selected':''}>Owner</option><option value="driver" ${profilePrefill.role_capacity==='driver'?'selected':''}>Driver</option><option value="owner_driver" ${profilePrefill.role_capacity==='owner_driver'?'selected':''}>Owner &amp; Driver</option></select></div>
+    <div class="field full conditional-driver-fields" id="owner-driver-fields" hidden><div class="subsection-title">Driver information</div><div class="form-grid nested-grid">
+      <div class="field"><label>Driver First Name <span class="req">*</span></label><input name="driver_first_name" value="${esc(profilePrefill.driver_first_name||'')}"></div>
+      <div class="field"><label>Driver Last Name <span class="req">*</span></label><input name="driver_last_name" value="${esc(profilePrefill.driver_last_name||'')}"></div>
+      <div class="field"><label>CDL Number <span class="req">*</span></label><input name="driver_cdl_number" value="${esc(profilePrefill.driver_cdl_number||'')}"></div>
+      <div class="field"><label>CDL State <span class="req">*</span></label><input name="driver_cdl_state" maxlength="2" value="${esc(profilePrefill.driver_cdl_state||'')}" placeholder="IL"></div>
+      <div class="field"><label>Date of Birth <span class="req">*</span></label><input type="date" name="driver_birthdate" value="${esc(profilePrefill.driver_birthdate||'')}"></div>
+    </div></div>
+    <div class="field full conditional-driver-fields" id="self-driver-fields" hidden><div class="subsection-title">Your CDL information</div><div class="form-grid nested-grid">
+      <div class="field"><label>CDL Number <span class="req">*</span></label><input name="cdl_number" value="${esc(profilePrefill.cdl_number||'')}"></div>
+      <div class="field"><label>CDL State <span class="req">*</span></label><input name="cdl_state" maxlength="2" value="${esc(profilePrefill.cdl_state||'')}" placeholder="IL"></div>
+      <div class="field"><label>Date of Birth <span class="req">*</span></label><input type="date" name="birthdate" value="${esc(profilePrefill.birthdate||'')}"></div>
+    </div></div>
+    <div class="field full"><div id="profile-step-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" id="profile-step-submit" type="submit">Save & Lock Information</button></div>
+   </form>
+  </div>`;
+
  const agreementSection=agreementDone?`
-  <div class="card onboarding-step complete-step"><div class="status">Agreement complete</div><h2>Consortium Letter of Agreement</h2><p>Your signed agreement is on file${agreement?.signed_at?` from ${fmt(agreement.signed_at)}`:""}.</p></div>`:`
+  <div class="card onboarding-step complete-step"><div class="status">Step 2 complete</div><h2>Consortium Letter of Agreement</h2><p>Your signed agreement is on file${agreement?.signed_at?` from ${fmt(agreement.signed_at)}`:""}.</p></div>`:`
   <div class="agreement-doc card" id="agreement-step">
    <div class="agreement-brand"><img src="/images/logo.png" alt="Workforce DOT"><div><strong>Workforce DOT, LLC</strong><span>A subsidiary of screenings4u, LLC</span><span>8537 S Pulaski Rd · Chicago, IL 60652</span><span>Ph: 773-245-7009 · Fax: 773-850-8094</span></div></div>
    <h2>Consortium Letter of Agreement</h2>
@@ -320,57 +342,31 @@ async function loadOnboarding(){
    <p>Services are administered under 49 CFR Part 40 and the rules of the DOT agency applicable to your operation, including 49 CFR Part 382 for FMCSA-regulated motor carriers. Enrollment becomes effective only after the Agreement is accepted and all required enrollment conditions are satisfied.</p>
    <div class="agreement-callout"><strong>Pre-employment requirement:</strong> Before active random-pool enrollment, an Owner-Operator must have a qualifying negative DOT pre-employment drug test on file. You may upload an official negative result dated within the last 30 days. If you do not have one, you must order and complete a DOT drug test.</div>
    <form id="agreement-form" class="agreement-form">
-    <section><h3>Company & regulatory program</h3><div class="form-grid">
-     <div class="field full"><label>Company legal name</label><input name="company_name" value="${company}" required></div>
-     <div class="field full"><label>DOT industry / agency</label><div class="agency-grid">
-      ${['FMCSA','USCG','FRA','FAA','FTA','PHMSA'].map(v=>`<label class="check-card"><input type="radio" name="industry_code" value="${v}" ${checked(v)} required><span>${v}</span></label>`).join('')}
-      <label class="check-card"><input type="radio" name="industry_code" value="OTHER" ${checked('OTHER')} required><span>Other</span></label>
-     </div></div>
-     <div class="field full" id="other-industry-field" style="display:${industry==='OTHER'?'block':'none'}"><label>Other industry</label><input name="other_industry"></div>
-    </div></section>
-    <section><h3>Services provided</h3><ul class="agreement-list"><li>Random database and roster management</li><li>Random selection program administration</li><li>Testing arrangements through qualified collection sites and laboratories</li><li>MRO review and verification where applicable</li><li>Program certificates and statistical/MIS reporting support</li><li>Administrative support for DOT audits and compliance records</li></ul>
-    <p>Additional services—including pre-employment, post-accident, reasonable-suspicion, return-to-duty/follow-up testing, mobile collections, training, DOT physicals, policy services and other compliance services—may be purchased separately unless specifically included in your active plan.</p></section>
-    <section class="initial-section"><h3>Required acknowledgments</h3>
-     <div class="initial-row"><p>Your company will be enrolled in the workforce DOT consortium/random testing program applicable to the selected agency.</p><label>Initials<input name="initials_consortium" maxlength="6" required></label></div>
-     <div class="initial-row"><p>Each enrolled driver or safety-sensitive employee must satisfy applicable pre-employment testing requirements before active enrollment.</p><label>Initials<input name="initials_preemployment" maxlength="6" required></label></div>
-     <div class="initial-row"><p>You must review and confirm your active roster when requested. Workforce DOT may rely on the most recently verified roster if an updated roster is not timely provided.</p><label>Initials<input name="initials_quarterly_list" maxlength="6" required></label></div>
-     <div class="initial-row"><p>You certify that roster information submitted to Workforce DOT is accurate and complete. Knowingly submitting false or misleading eligibility information may result in removal from the consortium and regulatory consequences.</p><label>Initials<input name="initials_roster_accuracy" maxlength="6" required></label></div>
-     <div class="initial-row"><p>You are responsible for notifying drivers of required testing, promptly reporting unavailability or refusals, and taking required action after positive or refusal results.</p><label>Initials<input name="initials_testing_duties" maxlength="6" required></label></div>
-    </section>
-    <section><h3>Program term & billing</h3><p>This Agreement is valid for one year from the signing date. Portal access and consortium administration are tied to an active annual Owner-Operator subscription. The subscription renews annually according to your billing terms unless canceled before renewal. Termination or nonpayment may suspend portal access and consortium participation, subject to applicable record-retention and regulatory obligations.</p>
-    <div class="price-table"><div><strong>Basic Compliance</strong><span>$74.95 / year</span></div><div><strong>Consortium + Drug Test</strong><span>$125.95 / year</span></div><div><strong>Complete Compliance</strong><span>$149.95 / year</span></div></div>
-    <p class="fine-print">Additional services are billed at the then-current Workforce DOT catalog rate unless included in the active plan.</p></section>
-    <section><h3>Electronic signature</h3><div class="form-grid">
-     <div class="field"><label>Authorized name</label><input name="authorized_name" value="${authorized}" required></div>
-     <div class="field"><label>Title / capacity</label><input name="authorized_title" placeholder="Owner / Authorized Representative"></div>
-     <div class="field full"><label>Electronic signature</label><input name="electronic_signature" required placeholder="Type your full legal name"><small>Typing your name constitutes your electronic signature.</small></div>
-     <div class="field full"><label class="agreement-consent"><input type="checkbox" name="accepted" value="yes" required><span>I have read this Letter of Agreement, the current Owner-Operator plan pricing, and the required acknowledgments above. I agree to be bound by this Agreement and certify that I am authorized to sign for the company.</span></label></div>
-     <div class="field full"><div id="agreement-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" id="agreement-submit" type="submit">Accept Agreement & Continue</button></div>
-    </div></section>
+    <section><h3>Company & regulatory program</h3><div class="form-grid"><div class="field full"><label>Company legal name</label><input name="company_name" value="${company}" required></div><div class="field full"><label>DOT industry / agency</label><div class="agency-grid">${['FMCSA','USCG','FRA','FAA','FTA','PHMSA'].map(v=>`<label class="check-card"><input type="radio" name="industry_code" value="${v}" ${checked(v)} required><span>${v}</span></label>`).join('')}<label class="check-card"><input type="radio" name="industry_code" value="OTHER" ${checked('OTHER')} required><span>Other</span></label></div></div><div class="field full" id="other-industry-field" style="display:${industry==='OTHER'?'block':'none'}"><label>Other industry</label><input name="other_industry"></div></div></section>
+    <section><h3>Services provided</h3><ul class="agreement-list"><li>Random database and roster management</li><li>Random selection program administration</li><li>Testing arrangements through qualified collection sites and laboratories</li><li>MRO review and verification where applicable</li><li>Program certificates and statistical/MIS reporting support</li><li>Administrative support for DOT audits and compliance records</li></ul><p>Additional services—including pre-employment, post-accident, reasonable-suspicion, return-to-duty/follow-up testing, mobile collections, training, DOT physicals, policy services and other compliance services—may be purchased separately unless specifically included in your active plan.</p></section>
+    <section class="initial-section"><h3>Required acknowledgments</h3><div class="initial-row"><p>Your company will be enrolled in the workforce DOT consortium/random testing program applicable to the selected agency.</p><label>Initials<input name="initials_consortium" maxlength="6" required></label></div><div class="initial-row"><p>Each enrolled driver or safety-sensitive employee must satisfy applicable pre-employment testing requirements before active enrollment.</p><label>Initials<input name="initials_preemployment" maxlength="6" required></label></div><div class="initial-row"><p>You must review and confirm your active roster when requested. Workforce DOT may rely on the most recently verified roster if an updated roster is not timely provided.</p><label>Initials<input name="initials_quarterly_list" maxlength="6" required></label></div><div class="initial-row"><p>You certify that roster information submitted to Workforce DOT is accurate and complete.</p><label>Initials<input name="initials_roster_accuracy" maxlength="6" required></label></div><div class="initial-row"><p>You are responsible for notifying drivers of required testing, promptly reporting unavailability or refusals, and taking required action after positive or refusal results.</p><label>Initials<input name="initials_testing_duties" maxlength="6" required></label></div></section>
+    <section><h3>Program term & billing</h3><p>This Agreement is valid for one year from the signing date. Portal access and consortium administration are tied to an active annual Owner-Operator subscription.</p><div class="price-table"><div><strong>Basic Compliance</strong><span>$74.95 / year</span></div><div><strong>Consortium + Drug Test</strong><span>$125.95 / year</span></div><div><strong>Complete Compliance</strong><span>$149.95 / year</span></div></div></section>
+    <section><h3>Electronic signature</h3><div class="form-grid"><div class="field"><label>Authorized name</label><input name="authorized_name" value="${authorized}" required></div><div class="field"><label>Title / capacity</label><input name="authorized_title" placeholder="Owner / Authorized Representative"></div><div class="field full"><label>Electronic signature</label><input name="electronic_signature" required placeholder="Type your full legal name"></div><div class="field full"><label class="agreement-consent"><input type="checkbox" name="accepted" value="yes" required><span>I have read this Letter of Agreement and certify that I am authorized to sign for the company.</span></label></div><div class="field full"><div id="agreement-msg" class="form-message" aria-live="polite"></div><button class="btn btn-primary" id="agreement-submit" type="submit">Accept Agreement & Continue</button></div></div></section>
    </form>
   </div>`;
- const proofSection=preemploymentDone?`
-  <div class="card onboarding-step complete-step" id="preemployment"><div class="status">Requirement submitted</div><h2>Pre-employment drug test</h2><p>${d.preemployment_proof?"Your official negative result has been uploaded and is pending verification.":"Your included DOT 5-panel drug test request has been submitted for scheduling."}</p><div class="actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>`:`
-  <div class="card onboarding-step" id="preemployment">
-   <div class="step-kicker">STEP 2 · REQUIRED</div><h2>Pre-employment negative drug test</h2>
-   <p>To complete Owner-Operator onboarding, provide an official negative DOT drug test result dated within the last 30 days, or order a new DOT 5-panel urine drug test.</p>
-   <div class="choice-grid">
-    <div class="choice-card"><h3>I have an official negative result</h3><p>Upload a PDF, PNG, or JPEG. The result must be dated within the last 30 days.</p>
-      <form id="proof-form"><div class="field"><label>Test date</label><input type="date" name="test_date" required></div><div class="field"><label>Official result file</label><input type="file" name="proof_file" accept="application/pdf,image/png,image/jpeg" required></div><label class="agreement-consent"><input type="checkbox" name="certified" required><span>I certify this is an official copy showing a negative DOT drug test result for me.</span></label><div id="proof-msg" class="form-message"></div><button class="btn btn-primary" type="submit">Upload Official Result</button></form>
-    </div>
-    <div class="choice-card"><h3>I need to take a drug test</h3><p>${d.test_included?`Your <strong>${esc(prefill.plan_name||"current plan")}</strong> includes one pre-employment DOT drug test. Complete the order form and we will use your current or future location to schedule the closest available collection site.`:`A pre-employment drug test is not included in your current plan. Purchase the DOT 5-panel test first, then return here to continue onboarding.`}</p>
-      <a class="btn ${d.test_included?'btn-primary':'btn-secondary'}" href="${d.test_included?'/order-drug-test.html':esc(d.purchase_url||'/checkout.html?service=dot_5_panel_urine')}">${d.test_included?'Order Included Drug Test':'Purchase DOT Drug Test — $59.95'}</a>
-    </div>
-   </div>
-  </div>`;
- root.innerHTML=pageHead("REQUIRED ONBOARDING","Owner-Operator onboarding","Complete both required steps before using the rest of the Owner-Operator portal.")+`<div class="onboarding-progress"><div class="${agreementDone?'done':'active'}"><span>1</span><strong>Consortium Agreement</strong></div><div class="${preemploymentDone?'done':agreementDone?'active':''}"><span>2</span><strong>Pre-employment Test</strong></div></div><div class="agreement-wrap">${agreementSection}${agreementDone?proofSection:''}</div>`;
- if(!agreementDone){
+
+ const proofSection=preemploymentDone?`<div class="card onboarding-step complete-step" id="preemployment"><div class="status">Step 3 complete</div><h2>Pre-employment drug test</h2><p>${d.preemployment_proof?"Your official negative result has been uploaded and is pending verification.":"Your included DOT 5-panel drug test request has been submitted for scheduling."}</p><div class="actions"><a class="btn btn-primary" href="/clearinghouse-setup.html">Continue to Clearinghouse Setup</a></div></div>`:`<div class="card onboarding-step" id="preemployment"><div class="step-kicker">STEP 3 · REQUIRED</div><h2>Pre-employment negative drug test</h2><p>Provide an official negative DOT drug test result dated within the last 30 days, or order a new DOT 5-panel urine drug test.</p><div class="choice-grid"><div class="choice-card"><h3>I have an official negative result</h3><p>Upload a PDF, PNG, or JPEG dated within the last 30 days.</p><form id="proof-form"><div class="field"><label>Test date</label><input type="date" name="test_date" required></div><div class="field"><label>Official result file</label><input type="file" name="proof_file" accept="application/pdf,image/png,image/jpeg" required></div><label class="agreement-consent"><input type="checkbox" name="certified" required><span>I certify this is an official copy showing a negative DOT drug test result for me.</span></label><div id="proof-msg" class="form-message"></div><button class="btn btn-primary" type="submit">Upload Official Result</button></form></div><div class="choice-card"><h3>I need to take a drug test</h3><p>${d.test_included?`Your <strong>${esc(prefill.plan_name||"current plan")}</strong> includes one pre-employment DOT drug test.`:`A pre-employment drug test is not included in your current plan. Purchase the DOT 5-panel test first.`}</p><a class="btn ${d.test_included?'btn-primary':'btn-secondary'}" href="${d.test_included?'/order-drug-test.html':esc(d.purchase_url||'/checkout.html?service=dot_5_panel_urine')}">${d.test_included?'Order Included Drug Test':'Purchase DOT Drug Test — $59.95'}</a></div></div></div>`;
+
+ root.innerHTML=pageHead("REQUIRED ONBOARDING","Owner-Operator onboarding","Complete all three required steps before using the rest of the Owner-Operator portal.")+`<div class="onboarding-progress onboarding-progress--three"><div class="${profileDone?'done':'active'}"><span>1</span><strong>Owner / Driver Information</strong></div><div class="${agreementDone?'done':profileDone?'active':''}"><span>2</span><strong>Consortium Agreement</strong></div><div class="${preemploymentDone?'done':agreementDone?'active':''}"><span>3</span><strong>Pre-employment Test</strong></div></div><div class="agreement-wrap">${profileSection}${profileDone?agreementSection:''}${profileDone&&agreementDone?proofSection:''}</div>`;
+
+ if(!profileDone){
+   const form=document.getElementById('onboarding-profile-form'),msg=document.getElementById('profile-step-msg'),btn=document.getElementById('profile-step-submit'),scope=form.elements.operation_scope,role=form.elements.role_capacity,mc=form.elements.mc_number,ownerFields=document.getElementById('owner-driver-fields'),selfFields=document.getElementById('self-driver-fields'),mcReq=document.getElementById('mc-required'),mcOpt=document.getElementById('mc-optional');
+   const syncScope=()=>{const interstate=scope.value==='interstate';mc.required=interstate;mcReq.style.display=interstate?'inline':'none';mcOpt.style.display=interstate?'none':'inline'};
+   const setRequired=(box,on)=>box.querySelectorAll('input').forEach(x=>x.required=on);
+   const syncRole=()=>{const v=role.value,isOwner=v==='owner',isSelf=v==='driver'||v==='owner_driver';ownerFields.hidden=!isOwner;selfFields.hidden=!isSelf;setRequired(ownerFields,isOwner);setRequired(selfFields,isSelf)};
+   scope.addEventListener('change',syncScope);role.addEventListener('change',syncRole);syncScope();syncRole();
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving and locking information…';msg.className='form-message';btn.disabled=true;const profile=Object.fromEntries(new FormData(form).entries());try{const saved=await onboardingProfileApi('save',{profile});if(saved?.error)throw new Error(saved.error);state.onboardingProfile={...(await onboardingProfileApi('status')),completed:true,locked:true};msg.textContent='Information saved and locked.';msg.className='form-message success';await loadOnboarding()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
+ } else if(!agreementDone){
    const form=document.getElementById('agreement-form'),msg=document.getElementById('agreement-msg'),btn=document.getElementById('agreement-submit');
    form.querySelectorAll('input[name="industry_code"]').forEach(el=>el.addEventListener('change',()=>{document.getElementById('other-industry-field').style.display=el.value==='OTHER'&&el.checked?'block':'none'}));
-   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.requires_workspace_selection)throw new Error('Your Owner-Operator workspace could not be selected. Please sign out and sign back in.');if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');if(!verify?.agreement_completed&&!verify?.agreement){throw new Error('The agreement request completed, but the signed agreement could not be verified. Please try again.')}state.onboarding=verify;msg.textContent='Agreement saved. Opening pre-employment step…';msg.className='form-message success';navigatePortal('/onboarding.html?step=preemployment#preemployment')}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
+   form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='Saving agreement…';msg.className='form-message';btn.disabled=true;const fd=new FormData(form),agreement=Object.fromEntries(fd.entries());agreement.accepted=fd.get('accepted')==='yes';try{const saved=await onboardingApi('complete_agreement',{agreement});if(saved?.error)throw new Error(saved.error);const verify=await onboardingApi('status');state.onboarding=verify;await loadOnboarding()}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error';btn.disabled=false}});
  } else if(!preemploymentDone){
-   const form=document.getElementById('proof-form');
-   form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';const max=10*1024*1024;if(file.size>max){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});msg.textContent='Upload received. Opening your dashboard…';msg.className='form-message success';navigatePortal('/dashboard.html',{replace:true})}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
+   const form=document.getElementById('proof-form');form?.addEventListener('submit',async e=>{e.preventDefault();const msg=document.getElementById('proof-msg'),file=form.elements.proof_file.files?.[0],date=form.elements.test_date.value;if(!file)return;msg.textContent='Uploading official result…';msg.className='form-message';if(file.size>10*1024*1024){msg.textContent='File must be 10 MB or smaller.';msg.className='form-message error';return}try{const base64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]||'');r.onerror=reject;r.readAsDataURL(file)});await onboardingApi('upload_result',{proof:{test_date:date,file_name:file.name,mime_type:file.type,file_base64:base64,certified:form.elements.certified.checked}});state.onboarding=await onboardingApi('status');await loadOnboarding()}catch(err){msg.textContent=err.message||String(err);msg.className='form-message error'}});
  }
 }
 

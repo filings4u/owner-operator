@@ -335,3 +335,21 @@ html{scroll-behavior:auto}
 .completion-checklist li+li{margin-top:6px}
 .completion-next-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 @media(max-width:900px){.completion-hero__header,.completion-grid{grid-template-columns:1fr}.completion-hero__copy h2{font-size:1.7rem}}
+
+
+/* Owner-Operator 3-step onboarding */
+.onboarding-progress--three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.profile-step-card{max-width:980px;margin:0 auto 18px;padding:26px}
+.profile-step-title{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px}
+.profile-step-title h2{margin:0 0 6px;color:#102f55}
+.profile-step-title p{margin:0;color:#63778d;line-height:1.55}
+.profile-lock-notice{border:1px solid #f3c28f;border-left:4px solid #ef6c00;background:#fff8f1;border-radius:12px;padding:14px 16px;margin:16px 0 22px;color:#5b4632;line-height:1.55}
+.lock-tooltip{position:relative;flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#102f55;color:#fff;font-weight:900;cursor:help;outline:none}
+.lock-tooltip__bubble{position:absolute;right:0;top:42px;width:300px;background:#102f55;color:#fff;border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.45;box-shadow:0 12px 28px rgba(16,47,85,.2);opacity:0;visibility:hidden;transform:translateY(-4px);transition:.15s;z-index:20}
+.lock-tooltip:hover .lock-tooltip__bubble,.lock-tooltip:focus .lock-tooltip__bubble{opacity:1;visibility:visible;transform:translateY(0)}
+.onboarding-profile-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.onboarding-profile-form .field.full{grid-column:1/-1}
+.nested-grid{margin-top:10px;padding:16px;border:1px solid #dbe4ef;border-radius:12px;background:#f8fbfe}
+.subsection-title{font-size:13px;font-weight:900;color:#102f55;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.req{color:#c4382b}.optional{font-size:11px;color:#7a8da0;font-weight:600}
+@media(max-width:840px){.onboarding-progress--three,.onboarding-profile-form{grid-template-columns:1fr}.onboarding-profile-form .field.full{grid-column:auto}.profile-step-title{align-items:flex-start}.lock-tooltip__bubble{right:-8px;width:260px}}
