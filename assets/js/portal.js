@@ -169,10 +169,23 @@ function renderShell(){
     else closeMenu();
   });
   mobile?.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
+  // Clicking the already-active navigation item should not reload the page.
+  document.querySelectorAll('.side .nav a.active,.mobile-nav-links a.active').forEach(a=>a.addEventListener('click',e=>e.preventDefault()));
 
   document.getElementById("signout-btn")?.addEventListener("click",async()=>{
     try{await supabase.auth.signOut({scope:'local'})}catch{}
     location.replace("/login.html");
+  });
+}
+
+function waitForBootstrap(timeoutMs=8000){
+  if(window.__S4U_OWNER_BOOTSTRAP__)return Promise.resolve(window.__S4U_OWNER_BOOTSTRAP__);
+  return new Promise((resolve,reject)=>{
+    let done=false;
+    const finish=v=>{if(done)return;done=true;clearTimeout(timer);window.removeEventListener('s4u:dot-authenticated',onAuth);resolve(v)};
+    const onAuth=()=>finish(window.__S4U_OWNER_BOOTSTRAP__);
+    const timer=setTimeout(()=>{if(done)return;done=true;window.removeEventListener('s4u:dot-authenticated',onAuth);reject(new Error('Portal session verification timed out. Please refresh once.'))},timeoutMs);
+    window.addEventListener('s4u:dot-authenticated',onAuth,{once:true});
   });
 }
 
@@ -181,9 +194,11 @@ async function guard(){
   if(!session){location.replace("/login.html?next="+encodeURIComponent(location.pathname+location.search));return false}
   state.session=session;
   const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
-  const payload=window.S4UWithPortal?window.S4UWithPortal({page:page.replace('.html','')}):{page:page.replace('.html','')};
-  const boot=window.__S4U_OWNER_BOOTSTRAP__||await edge("owner-operator-bootstrap",payload);
-  window.__S4U_OWNER_BOOTSTRAP__=boot;
+  // portal-security.js is the single source of truth for access/bootstrap.
+  // Waiting for its result avoids a second network bootstrap and eliminates
+  // the visible refresh/flicker caused by two guards racing each other.
+  const boot=await waitForBootstrap();
+  if(!boot)throw new Error('Unable to verify Owner-Operator portal access.');
   const ctx=boot.context||boot;
   const w=ctx.workspace||ctx.context||ctx;
   const portal=String(w.portal||ctx.portal_code||ctx.access?.portal_code||"");
@@ -193,19 +208,10 @@ async function guard(){
   state.permissions=w.permissions||ctx.permissions||[];
   const org=document.getElementById("org-name");
   if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
-  const onboarding=boot.onboarding||null;
-  if(onboarding){
-    state.onboarding=onboarding;
-    if(!onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
-  }else{
-    const od=await onboardingApi("status");state.onboarding=od;
-    if(!od.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
-  }
-  if(state.onboarding?.completed){
-    const clearinghouse=boot.clearinghouse||await clearinghouseApi("status");
-    state.clearinghouse=clearinghouse;
-    if(!clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/clearinghouse-setup.html");return false}
-  }
+  state.onboarding=boot.onboarding||null;
+  state.clearinghouse=boot.clearinghouse||null;
+  if(state.onboarding && !state.onboarding.completed && !["onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/onboarding.html");return false}
+  if(state.onboarding?.completed && state.clearinghouse && !state.clearinghouse.completed && !["clearinghouse-setup.html","onboarding.html","checkout.html","order-drug-test.html"].includes(page)){location.replace("/clearinghouse-setup.html");return false}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false) throw new Error("This page is not included in your current Owner-Operator plan.");
   return true;

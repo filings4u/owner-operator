@@ -248,3 +248,19 @@ body{background:#eef3f8;color:var(--ink)}
   .content{padding:14px}
   .page-head h1{font-size:1.65rem}
 }
+
+
+/* Owner-Operator performance/layout pass */
+html{scroll-behavior:auto}
+.side .nav{overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:none!important;-ms-overflow-style:none!important;overscroll-behavior:contain}
+.side .nav::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+.mobile-nav-links{scrollbar-width:none!important;-ms-overflow-style:none!important}
+.mobile-nav-links::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+.page{contain:layout style;min-height:calc(100vh - 62px)}
+.page-head{margin-bottom:18px}
+.clearinghouse-callout,.clearinghouse-confirm{border-radius:16px}
+.setup-checklist{margin:8px 0 0;padding-left:26px}
+.setup-checklist li{padding:7px 0 9px 4px;line-height:1.35}
+.setup-checklist li span{display:block;margin-top:3px;color:var(--muted);line-height:1.45}
+.clearinghouse-callout .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+@media(min-width:1025px){.main{margin-left:250px}.content{padding:24px 28px 40px}.page{max-width:1200px;margin:0 auto}}
