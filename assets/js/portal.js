@@ -51,6 +51,7 @@ function deletePageCache(key){pageCache.delete(key);try{sessionStorage.removeIte
 let navigating=false;
 
 async function edge(name,body){
+  const requestBody=window.S4UWithPortal?window.S4UWithPortal(body||{}):(body||{});
   async function validSession(forceRefresh=false){
     let {data:{session},error}=forceRefresh?await supabase.auth.refreshSession():await supabase.auth.getSession();
     if(error) session=null;
@@ -68,7 +69,7 @@ async function edge(name,body){
         "Authorization":"Bearer "+session.access_token,
         "apikey":cfg.key
       },
-      body:JSON.stringify(body||{})
+      body:JSON.stringify(requestBody)
     });
   }
   let session=await validSession(false);
@@ -250,7 +251,7 @@ async function owner(action,extra={}){
   if(cacheable){const entry={ts:Date.now(),data};pageCache.set(key,entry);writePersistentCache(key,entry)}
   return data;
 }
-async function members(action,extra={}){return edge("workforce-owner-members",{action,...extra})}
+async function members(action,extra={}){return edge("owner-operator-members",{action,...extra})}
 async function onboardingApi(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({...extra}):{...extra};
   if(action==="status") return edge("owner-operator-actions",{...payload,action:"onboarding_status",page:"onboarding.html"});

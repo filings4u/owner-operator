@@ -1,5 +1,0 @@
-cfcea1c39bf2732ab397ba571b3456a760d0cc3c8bc6b5e41df2618f009873a2  assets/js/config.js
-c297ee205c653e98f21e37d55ea2cf7190bfccd1bd755214911e793bf2b10b41  assets/js/login.js
-dc8e3aee61a089bee1d2c00c012ed7acf720a1caced710f32c14c0db2c50f2f5  assets/js/auth.js
-0ecbf9248b7c16c3fca2cdc00ecd0690fe9d24992e37c490232306df0dd50322  assets/js/portal.js
-d951a72730d05f350d872daecf128689f0816053bff33d45a8a800f51257112a  assets/js/portal-security.js
