@@ -43,7 +43,7 @@ const featureByPage={
 const state={session:null,context:null,entitlements:{},permissions:[],onboarding:null,clearinghouse:null};
 const pageCache=new Map();
 const PAGE_CACHE_TTL=5*60*1000;
-const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:';
+const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:v2:';
 const PREFETCH_ACTIONS=['overview','profile','drivers','programs','consortium','testing','results','compliance','rtd','documents','reports','billing','notifications','audit'];
 function readPersistentCache(key){try{const x=JSON.parse(sessionStorage.getItem(PERSIST_CACHE_PREFIX+key)||'null');if(x&&Date.now()-Number(x.ts||0)<PAGE_CACHE_TTL)return x}catch{}return null}
 function writePersistentCache(key,entry){try{sessionStorage.setItem(PERSIST_CACHE_PREFIX+key,JSON.stringify(entry))}catch{}}
@@ -467,20 +467,26 @@ async function loadDashboard(){
  const d=await owner("overview");
  const ownerObj=d.owner||{};
  const testing=d.testing||[], compliance=d.compliance||[], docs=d.document_packets||[], programs=d.programs||[], drivers=d.drivers||[];
- const activeCons=(d.consortium_enrollments||[]).filter(x=>String(x.status).toLowerCase()==="active").length;
+ const activeCons=(d.consortium_enrollments||[]).filter(x=>["active","eligible"].includes(String(x.status||x.eligibility_status).toLowerCase())).length;
+ const deadlineCell=x=>{
+   if(!x.collection_deadline)return '<span class="deadline-empty">Not set</span>';
+   const deadline=new Date(x.collection_deadline),done=["completed","final_result","closed","cancelled"].includes(String(x.status||"").toLowerCase()),late=!done&&Number.isFinite(deadline.getTime())&&deadline.getTime()<Date.now();
+   return `<span class="test-deadline${late?" overdue":""}">${esc(fmt(x.collection_deadline))}${late?' <small>Overdue</small>':''}</span>`;
+ };
  document.getElementById("page-content").innerHTML=
+  `<div class="dashboard-view">`+
   pageHead("OWNER-OPERATOR DOT WORKSPACE","Your DOT program at a glance","A single-driver workspace for program status, consortium participation, testing, results, documents and follow-up activity.")+
   `<div class="notice"><strong>FMCSA owner-operator workflow:</strong> keep your consortium/random-pool participation, testing activity and program records visible in one place. This software supports administration and recordkeeping; it is not legal advice.</div>
-  <div class="grid grid-4" style="margin-top:18px">
+  <div class="grid grid-4 dashboard-metrics" style="margin-top:16px">
     <div class="card metric"><div class="label">Driver records</div><div class="value">${drivers.length}</div></div>
     <div class="card metric"><div class="label">Active DOT programs</div><div class="value">${programs.filter(x=>x.status==="active").length}</div></div>
     <div class="card metric"><div class="label">Active consortium enrollments</div><div class="value">${activeCons}</div></div>
     <div class="card metric"><div class="label">Open compliance items</div><div class="value">${compliance.filter(x=>!["resolved","closed"].includes(String(x.status))).length}</div></div>
   </div>
-  <div class="grid grid-2" style="margin-top:18px">
-    <div class="card"><h2>Recent testing</h2>${table(["Order","Reason","Test","Status","Created"],testing.slice(0,8).map(x=>`<tr><td>${esc(x.order_number||x.id)}</td><td>${esc(x.reason)}</td><td>${esc(x.test_type)}</td><td>${status(x.status)}</td><td>${fmt(x.created_at)}</td></tr>`))}</div>
+  <div class="grid grid-2 dashboard-sections" style="margin-top:16px">
+    <div class="card"><h2>Recent testing</h2>${table(["Order","Reason","Test","Status","Must test by","Created"],testing.slice(0,8).map(x=>`<tr><td>${esc(x.order_number||x.id)}</td><td>${esc(x.reason)}</td><td>${esc(x.test_type)}</td><td>${status(x.status)}</td><td>${deadlineCell(x)}</td><td>${fmt(x.created_at)}</td></tr>`))}</div>
     <div class="card"><h2>Program documents</h2>${table(["Document","Status","Valid until"],docs.slice(0,8).map(x=>`<tr><td>${esc(x.title)}</td><td>${status(x.status)}</td><td>${fmt(x.valid_until)}</td></tr>`))}</div>
-  </div>`;
+  </div></div>`;
 }
 
 async function loadProfile(){
@@ -503,9 +509,15 @@ async function loadProfile(){
 }
 
 async function loadDrivers(){
- const d=await owner("drivers"), rows=d.drivers||[];
- document.getElementById("page-content").innerHTML=pageHead("DRIVER","Driver record","Maintain the driver record associated with your Owner-Operator account.")+
- table(["Name","Employee #","Status","CDL","State","DOT agency"],rows.map(x=>`<tr><td>${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}</td><td>${esc(x.employee_number)}</td><td>${status(x.employment_status)}</td><td>${esc(x.cdl_number)}</td><td>${esc(x.cdl_state)}</td><td>${esc(x.dot_agency||"FMCSA")}</td></tr>`));
+ const d=await owner("drivers"), rows=d.drivers||[],root=document.getElementById("page-content");
+ root.innerHTML=pageHead("DRIVER","Driver record","View the driver records associated with your Owner-Operator account and send the official FMCSA limited-query consent form.")+
+ `<div class="notice"><strong>FMCSA consent:</strong> The form sent here is the official FMCSA sample for <strong>general consent to limited Clearinghouse queries</strong>. Full and pre-employment queries require the driver to provide specific electronic consent inside the FMCSA Clearinghouse.</div>`+
+ table(["Name","Employee #","Status","CDL","State","DOT agency","Consent"],rows.map(x=>`<tr><td>${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}</td><td>${esc(x.employee_number)}</td><td>${status(x.employment_status)}</td><td>${esc(x.cdl_number)}</td><td>${esc(x.cdl_state)}</td><td>${esc(x.dot_agency||"FMCSA")}</td><td><button class="btn btn-secondary driver-consent-btn" data-driver-id="${esc(x.id)}" data-driver-name="${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}" data-driver-email="${esc(x.email||'')}">Send Consent Form</button></td></tr>`))+
+ `<div class="popup" id="driver-consent-popup"><div class="popup-card"><div class="section-kicker">FMCSA CLEARINGHOUSE</div><h2>Send limited-query consent form</h2><p id="driver-consent-copy">Send the official FMCSA sample general consent form to this driver.</p><form id="driver-consent-form" class="form-grid"><input type="hidden" name="driver_id"><div class="field full"><label>Driver email</label><input type="email" name="email" required autocomplete="email"></div><div class="field full"><div id="driver-consent-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Send FMCSA Consent Form</button><button class="btn btn-secondary" type="button" id="driver-consent-cancel">Cancel</button></div></div></form></div></div>`;
+ const pop=document.getElementById('driver-consent-popup'),form=document.getElementById('driver-consent-form'),msg=document.getElementById('driver-consent-msg'),copy=document.getElementById('driver-consent-copy');
+ document.querySelectorAll('.driver-consent-btn').forEach(btn=>btn.addEventListener('click',()=>{form.elements.driver_id.value=btn.dataset.driverId||'';form.elements.email.value=btn.dataset.driverEmail||'';copy.textContent=`Send the official FMCSA sample general consent form to ${btn.dataset.driverName||'this driver'}.`;msg.textContent='';msg.className='form-message';pop.classList.add('open');form.elements.email.focus()}));
+ document.getElementById('driver-consent-cancel')?.addEventListener('click',()=>pop.classList.remove('open'));
+ form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]');btn.disabled=true;msg.textContent='Sending consent form…';msg.className='form-message';try{const payload=Object.fromEntries(new FormData(form).entries());await edge('owner-operator-driver-consent',{action:'send_limited_query_consent',...payload});msg.textContent='FMCSA consent form sent.';msg.className='form-message success';deletePageCache('owner:drivers');setTimeout(()=>pop.classList.remove('open'),800)}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
 }
 
 async function loadPrograms(){
@@ -677,7 +689,7 @@ async function renderCurrentPage(){
   if(redirect&&page!==redirect.replace(/^\//,'')){history.replaceState({},'',redirect);page=currentPage()}
   syncActiveNav();
   const root=document.getElementById('page-content');
-  if(root)root.setAttribute('aria-busy','true');
+  if(root){root.setAttribute('aria-busy','true');root.classList.toggle('dashboard-page',page==='dashboard.html')}
   const required=featureByPage[page];
   if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false)throw new Error("This page is not included in your current Owner-Operator plan.");
   const loader=LOADERS[page]||loadDashboard;

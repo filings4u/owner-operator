@@ -379,3 +379,29 @@ input::placeholder,textarea::placeholder{font-size:inherit}
 .readonly-profile-notice span{flex:1 1 420px;color:#61758a}
 .readonly-profile-grid input[readonly]{background:#eef2f6!important;color:#5f6f80!important;border-color:#d2dbe5!important;cursor:not-allowed!important;box-shadow:none!important}
 @media(max-width:760px){.readonly-profile-notice{align-items:flex-start}.readonly-profile-notice .btn{width:100%;text-align:center}}
+
+
+/* Dashboard typography normalized to the compact Owner-Operator portal shell.
+   All sizes remain rem-based so A-/A+ scales the entire dashboard together. */
+.dashboard-view .page-head{margin-bottom:18px}
+.dashboard-view .page-head h1{font-size:1.72rem;line-height:1.13;margin:5px 0 6px}
+.dashboard-view .page-head p{font-size:.9rem;line-height:1.45;margin:0}
+.dashboard-view .eyebrow{font-size:.72rem}
+.dashboard-view .notice{font-size:.86rem;line-height:1.45;padding:12px 14px}
+.dashboard-view .card{padding:16px;border-radius:14px}
+.dashboard-view .metric .label{font-size:.8rem}
+.dashboard-view .metric .value{font-size:1.65rem;margin-top:4px}
+.dashboard-view h2{font-size:1.18rem;margin-bottom:10px}
+.dashboard-view th{font-size:.72rem;padding:10px 11px}
+.dashboard-view td{font-size:.84rem;padding:10px 11px}
+.dashboard-view table{min-width:690px}
+.dashboard-view .status{font-size:.72rem;padding:5px 8px}
+.test-deadline{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#17365f;white-space:nowrap}
+.test-deadline small{display:inline-flex;padding:3px 6px;border-radius:999px;background:#fff1f0;color:#a72d2d;font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
+.test-deadline.overdue{color:#a72d2d}
+.deadline-empty{color:var(--muted);font-style:italic;white-space:nowrap}
+@media(max-width:760px){
+ .dashboard-view .page-head h1{font-size:1.5rem}
+ .dashboard-view .page-head p{font-size:.85rem}
+ .dashboard-view .card{padding:14px}
+}
