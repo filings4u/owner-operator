@@ -564,8 +564,54 @@ async function loadRTD(){
 
 async function loadDocuments(){
  const d=await owner("documents"), rows=d.documents||d.packets||d.document_packets||[];
- document.getElementById("page-content").innerHTML=pageHead("DOCUMENTS","Program documents","Keep certificates, packets and supporting program records organized.")+
- table(["Document","Type","Status","Updated","Valid until"],rows.map(x=>`<tr><td>${esc(x.title||x.name)}</td><td>${esc(x.document_type||x.packet_type)}</td><td>${status(x.status)}</td><td>${fmt(x.updated_at)}</td><td>${fmt(x.valid_until)}</td></tr>`));
+ const docStatus=(x)=>x.document_status||x.status||"published";
+ const title=(x)=>x.display_title||x.title||x.name||x.file_name||"Document";
+ document.getElementById("page-content").innerHTML=pageHead("DOCUMENTS","Program documents","View and download onboarding documents and records published to your Owner-Operator portal.")+
+ table(["Document","Type","Status","Updated","Valid until","Actions"],rows.map(x=>`<tr><td><strong>${esc(title(x))}</strong></td><td>${esc(x.document_type||x.packet_type||"document")}</td><td>${status(docStatus(x))}</td><td>${fmt(x.updated_at||x.signed_at||x.uploaded_at)}</td><td>${fmt(x.valid_until||x.expires_on)}</td><td><div class="doc-actions"><button class="btn btn-secondary doc-view-btn" type="button" data-id="${esc(x.id)}" data-source="${esc(x.source_type||"dot_document")}">View</button><button class="btn btn-primary doc-download-btn" type="button" data-id="${esc(x.id)}" data-source="${esc(x.source_type||"dot_document")}">Download PDF</button></div></td></tr>`));
+ bindDocumentActions();
+}
+
+function documentBodyHtml(doc){
+ if(doc.source_type==="consortium_agreement"||doc.document_type==="consortium_agreement"){
+   const snap=doc.agreement_snapshot||{};
+   return `<div class="doc-sheet"><div class="doc-brand"><img src="/images/logo.png" alt="Workforce DOT"></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="doc-legal">Workforce DOT, LLC · A subsidiary of screenings4u, LLC</div></div>`;
+ }
+ const body=doc.html_content||`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
+ return `<div class="doc-sheet"><div class="doc-brand"><img src="/images/logo.png" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">Workforce DOT, LLC · A subsidiary of screenings4u, LLC</div></div>`;
+}
+
+async function getDocumentDetail(id,source){
+ const d=await owner("document_detail",{document_id:id,source_type:source});
+ return d.document||d;
+}
+
+function ensureDocumentViewer(){
+ let el=document.getElementById("document-viewer-modal");
+ if(el)return el;
+ el=document.createElement("div");
+ el.id="document-viewer-modal";el.className="doc-modal";el.hidden=true;
+ el.innerHTML=`<div class="doc-modal-backdrop" data-close-doc></div><div class="doc-modal-panel" role="dialog" aria-modal="true" aria-label="Document viewer"><div class="doc-modal-head"><strong id="doc-modal-title">Document</strong><div class="doc-actions"><button type="button" class="btn btn-primary" id="doc-modal-download">Download PDF</button><button type="button" class="btn btn-secondary" data-close-doc>Close</button></div></div><div class="doc-modal-body" id="doc-modal-body"></div></div>`;
+ document.body.appendChild(el);
+ el.querySelectorAll("[data-close-doc]").forEach(b=>b.addEventListener("click",()=>{el.hidden=true;document.body.classList.remove("doc-modal-open")}));
+ return el;
+}
+
+async function downloadDocumentPdf(doc){
+ const wrap=document.createElement("div");wrap.className="pdf-export-wrap";wrap.innerHTML=documentBodyHtml(doc);document.body.appendChild(wrap);
+ const safe=(doc.title||doc.display_title||doc.file_name||"document").replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()+".pdf";
+ try{
+   if(typeof html2pdf!=="function")throw new Error("PDF generator is unavailable. Refresh this page and try again.");
+   await html2pdf().set({margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}}).from(wrap.firstElementChild).save();
+ }finally{wrap.remove()}
+}
+
+function bindDocumentActions(){
+ document.querySelectorAll(".doc-view-btn").forEach(btn=>btn.addEventListener("click",async()=>{
+   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);const modal=ensureDocumentViewer();modal.querySelector("#doc-modal-title").textContent=doc.title||doc.display_title||doc.file_name||"Document";modal.querySelector("#doc-modal-body").innerHTML=documentBodyHtml(doc);const dl=modal.querySelector("#doc-modal-download");dl.onclick=()=>downloadDocumentPdf(doc);modal.hidden=false;document.body.classList.add("doc-modal-open")}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
+ }));
+ document.querySelectorAll(".doc-download-btn").forEach(btn=>btn.addEventListener("click",async()=>{
+   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);await downloadDocumentPdf(doc)}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
+ }));
 }
 
 async function loadReports(){
