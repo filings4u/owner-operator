@@ -680,6 +680,39 @@ function pdfRenderSrcdoc(doc){
  </style></head><body>${body}</body></html>`;
 }
 
+
+let __html2pdfLoadPromise=null;
+async function ensureHtml2Pdf(){
+ if(typeof window.html2pdf==="function")return window.html2pdf;
+ if(__html2pdfLoadPromise)return __html2pdfLoadPromise;
+ __html2pdfLoadPromise=new Promise((resolve,reject)=>{
+   const existing=document.querySelector('script[data-s4u-html2pdf="1"]');
+   if(existing){
+     const finish=()=>typeof window.html2pdf==="function"?resolve(window.html2pdf):reject(new Error("PDF generator failed to load."));
+     if(typeof window.html2pdf==="function")return resolve(window.html2pdf);
+     existing.addEventListener("load",finish,{once:true});
+     existing.addEventListener("error",()=>reject(new Error("PDF generator failed to load.")),{once:true});
+     return;
+   }
+   const script=document.createElement("script");
+   script.src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+   script.async=true;
+   script.dataset.s4uHtml2pdf="1";
+   script.onload=()=>typeof window.html2pdf==="function"?resolve(window.html2pdf):reject(new Error("PDF generator failed to initialize."));
+   script.onerror=()=>{
+     const fallback=document.createElement("script");
+     fallback.src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js";
+     fallback.async=true;
+     fallback.dataset.s4uHtml2pdf="1";
+     fallback.onload=()=>typeof window.html2pdf==="function"?resolve(window.html2pdf):reject(new Error("PDF generator failed to initialize."));
+     fallback.onerror=()=>reject(new Error("PDF generator could not be loaded."));
+     document.head.appendChild(fallback);
+   };
+   document.head.appendChild(script);
+ }).catch(err=>{__html2pdfLoadPromise=null;throw err});
+ return __html2pdfLoadPromise;
+}
+
 async function downloadDocumentPdf(doc){
  await ensureHtml2Pdf();
  const certificate=isCertificateDocument(doc);
