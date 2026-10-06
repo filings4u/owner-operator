@@ -102,7 +102,7 @@ function renderShell(){
   shell.innerHTML=`
     <div class="app">
       <aside class="side" id="side">
-        <div class="brand"><img src="/images/logo.png" alt="workforce DOT Owner-Operator"></div>
+        <div class="brand"><img src="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot.png" alt="workforce DOT Owner-Operator"></div>
         <nav class="nav">
           <div class="nav-title">Owner-Operator DOT Workspace</div>
           ${nav}
@@ -358,7 +358,7 @@ async function loadOnboarding(){
  const agreementSection=agreementDone?`
   <div class="card onboarding-step complete-step"><div class="status">Step 2 complete</div><h2>Consortium Letter of Agreement</h2><p>Your signed agreement is on file${agreement?.signed_at?` from ${fmt(agreement.signed_at)}`:""}.</p></div>`:`
   <div class="agreement-doc card" id="agreement-step">
-   <div class="agreement-brand"><img src="/images/logo.png" alt="Workforce DOT"><div><strong>Workforce DOT, LLC</strong><span>A subsidiary of screenings4u, LLC</span><span>8537 S Pulaski Rd · Chicago, IL 60652</span><span>Ph: 773-245-7009 · Fax: 773-850-8094</span></div></div>
+   <div class="agreement-brand"><img src="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot.png" alt="Workforce DOT"><div><strong>Workforce DOT, LLC</strong><span>A subsidiary of screenings4u, LLC</span><span>8537 S Pulaski Rd · Chicago, IL 60652</span><span>Ph: 773-245-7009 · Fax: 773-850-8094</span></div></div>
    <h2>Consortium Letter of Agreement</h2>
    <p>This Letter of Agreement is between the company identified below and <strong>Workforce DOT, LLC</strong>, a subsidiary of <strong>screenings4u, LLC</strong>. Workforce DOT, LLC administers the workforce DOT drug and alcohol testing program and related consortium services.</p>
    <p>Services are administered under 49 CFR Part 40 and the rules of the DOT agency applicable to your operation, including 49 CFR Part 382 for FMCSA-regulated motor carriers. Enrollment becomes effective only after the Agreement is accepted and all required enrollment conditions are satisfied.</p>
@@ -576,6 +576,7 @@ async function loadDocuments(){
  bindDocumentActions();
 }
 
+const WORKFORCE_DOT_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot.png";
 const WORKFORCE_DOT_WHITE_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot2.png";
 function docMergeFields(doc){
  const ctx=state.context||{},owner=ctx.owner_operator||{},employer=ctx.employer||{},org=ctx.organization||{},meta=owner.metadata||{},dm=doc.metadata||{};
@@ -603,7 +604,7 @@ function isCertificateDocument(doc){return String(doc?.document_type||"")==="con
 function trackingNumberValue(doc){const existing=doc?.metadata?.tracking_number||doc?.tracking_number||'';if(existing)return String(existing);const rawDate=doc?.pushed_at||doc?.updated_at||doc?.signed_at||doc?.uploaded_at||new Date().toISOString();const d=new Date(rawDate);const stamp=(Number.isNaN(d.getTime())?new Date():d).toISOString().slice(0,10).replace(/-/g,'');const seed=String(doc?.id||((globalThis.crypto&&typeof globalThis.crypto.randomUUID==='function')?globalThis.crypto.randomUUID():Math.random().toString(36).slice(2,10))).replace(/[^a-z0-9]/gi,'').toUpperCase();return `WFDOT-${stamp}-${(seed||'DOC00000').slice(0,8).padEnd(8,'0')}`}
 function isTrackableDocument(doc){const template=String(doc?.metadata?.template||'').trim(),type=String(doc?.document_type||doc?.source_type||'').trim();return isCertificateDocument(doc)||['consortium_letter','consortium_agreement'].includes(type)||['consortium_letter','agreement'].includes(template)}
 function securityFooterText(doc){const name=doc.title||doc.display_title||doc.file_name||((doc.source_type==='consortium_agreement'||doc.document_type==='consortium_agreement')?'Owner-Operator Consortium Agreement':'DOT Document');return `Workforce DOT, LLC · ${trackingNumberValue(doc)} - ${name}`}
-function withSecurityWrapper(doc,inner,certificate){const trackable=isTrackableDocument(doc),watermark=trackable?`<div class="document-watermark" aria-hidden="true"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt=""></div>`:'',head=trackable&&!certificate?`<div class="document-security-top"><span>Tracking Number: ${esc(trackingNumberValue(doc))}</span><span>Issued: ${esc(fmt(doc.pushed_at||doc.updated_at||doc.signed_at||doc.uploaded_at))}</span></div>`:'',foot=trackable&&!certificate?`<div class="document-security-bottom">${esc(securityFooterText(doc))}</div>`:'';return `<div class="document-security-shell${trackable?' is-trackable':''}">${watermark}${head}${inner}${foot}</div>`}
+function withSecurityWrapper(doc,inner,certificate){const trackable=isTrackableDocument(doc),watermark=trackable?`<div class="document-watermark" aria-hidden="true"><img src="${WORKFORCE_DOT_LOGO}" alt=""></div>`:'',head=trackable&&!certificate?`<div class="document-security-top"><span>Tracking Number: ${esc(trackingNumberValue(doc))}</span><span>Issued: ${esc(fmt(doc.pushed_at||doc.updated_at||doc.signed_at||doc.uploaded_at))}</span></div>`:'',foot=trackable&&!certificate?`<div class="document-security-bottom">${esc(securityFooterText(doc))}</div>`:'';return `<div class="document-security-shell${trackable?' is-trackable':''}">${watermark}${head}${inner}${foot}</div>`}
 function ensureCertificateSecurityMarkup(html,doc){let out=String(html||'');const tracking=esc(trackingNumberValue(doc)),footer=esc(securityFooterText(doc));if(!/certificate-tracking/.test(out)&&/certificate-issued/.test(out))out=out.replace('<div class="certificate-issued">',`<div class="certificate-tracking"><span>Tracking Number</span><strong>${tracking}</strong></div><div class="certificate-issued">`);if(/certificate-footerline/i.test(out))out=out.replace(/<div class="certificate-footerline">[\s\S]*?<\/div>/i,`<div class="certificate-footerline">${footer}</div>`);else out=out.replace(/<\/div>\s*<\/div>\s*$/i,`<div class="certificate-footerline">${footer}</div></div></div>`);return out}
 function mergeDocumentTemplate(html,doc){
  const fields=docMergeFields(doc);
@@ -626,7 +627,7 @@ function documentBodyHtml(doc){
  const body=doc.html_content?mergeDocumentTemplate(doc.html_content,doc):`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
  const certificate=isCertificateDocument(doc);
  if(certificate){
-   return withSecurityWrapper(doc,`<div class="doc-sheet certificate-sheet"><div class="certificate-topbrand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"><span>OFFICIAL ENROLLMENT CERTIFICATE</span></div><div class="doc-rendered-content certificate-rendered-content">${body}</div></div>`,true);
+   return withSecurityWrapper(doc,`<div class="doc-sheet certificate-sheet"><div class="certificate-topbrand"><img src="${WORKFORCE_DOT_LOGO}" alt="Workforce DOT"><span>OFFICIAL ENROLLMENT CERTIFICATE</span></div><div class="doc-rendered-content certificate-rendered-content">${body}</div></div>`,true);
  }
  return withSecurityWrapper(doc,`<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`,false);
 }
@@ -659,11 +660,23 @@ function documentViewerSrcdoc(doc){
  </style></head><body class="${certificate?'certificate-document':''}">${body}</body></html>`;
 }
 
+let html2pdfLoadPromise=null;
+function ensureHtml2Pdf(){
+ if(typeof html2pdf==="function")return Promise.resolve();
+ if(html2pdfLoadPromise)return html2pdfLoadPromise;
+ html2pdfLoadPromise=new Promise((resolve,reject)=>{
+   const existing=document.querySelector('script[data-s4u-html2pdf]');
+   if(existing){existing.addEventListener('load',()=>typeof html2pdf==="function"?resolve():reject(new Error("PDF generator failed to initialize.")),{once:true});existing.addEventListener('error',()=>reject(new Error("PDF generator could not be loaded.")),{once:true});return}
+   const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.async=true;s.dataset.s4uHtml2pdf='1';s.crossOrigin='anonymous';s.onload=()=>typeof html2pdf==="function"?resolve():reject(new Error("PDF generator failed to initialize."));s.onerror=()=>reject(new Error("PDF generator could not be loaded."));document.head.appendChild(s);
+ });
+ return html2pdfLoadPromise;
+}
+
 async function downloadDocumentPdf(doc){
+ await ensureHtml2Pdf();
  const certificate=isCertificateDocument(doc),wrap=document.createElement("div");wrap.className="pdf-export-wrap"+(certificate?" certificate-pdf-export":"");wrap.innerHTML=documentBodyHtml(doc);document.body.appendChild(wrap);
  const safe=(doc.title||doc.display_title||doc.file_name||"document").replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()+".pdf";
  try{
-   if(typeof html2pdf!=="function")throw new Error("PDF generator is unavailable. Refresh this page and try again.");
    const opt=certificate
      ?{margin:[0.2,0.2,0.2,0.2],filename:safe,image:{type:"jpeg",quality:.99},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",width:1056,height:816,windowWidth:1056,windowHeight:816},jsPDF:{unit:"in",format:"letter",orientation:"landscape"}}
      :{margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}};
