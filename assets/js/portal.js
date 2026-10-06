@@ -42,7 +42,8 @@ const featureByPage={
 
 const state={session:null,context:null,entitlements:{},permissions:[],onboarding:null,clearinghouse:null};
 const pageCache=new Map();
-const PAGE_CACHE_TTL=5*60*1000;
+const PAGE_CACHE_TTL=30*1000;
+const ALWAYS_FRESH_ACTIONS=new Set(['programs','consortium','overview']);
 const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:v2:';
 const PREFETCH_ACTIONS=['overview','profile','drivers','programs','consortium','testing','results','compliance','rtd','documents','reports','billing','notifications','audit'];
 function readPersistentCache(key){try{const x=JSON.parse(sessionStorage.getItem(PERSIST_CACHE_PREFIX+key)||'null');if(x&&Date.now()-Number(x.ts||0)<PAGE_CACHE_TTL)return x}catch{}return null}
@@ -224,9 +225,19 @@ async function guard(){
   if(org)org.textContent=w.organization_name||w.organization?.dba_name||w.organization?.legal_name||w.owner_operator?.legal_name||"Owner-Operator Portal";
   state.onboarding=boot.onboarding||null;
   state.clearinghouse=boot.clearinghouse||null;
-  // Clearinghouse confirmation is the final onboarding gate. If it is complete,
-  // the portal must stay unlocked even if an older onboarding bootstrap snapshot
-  // still reports completed=false.
+
+  // Never lock navigation from a stale bootstrap snapshot. Re-read the live
+  // onboarding/Clearinghouse state before deciding that the workspace is locked.
+  if(state.onboarding?.completed!==true && state.clearinghouse?.completed!==true){
+    try{
+      const fresh=await edge("owner-operator-bootstrap",{page:page.replace(".html","")});
+      if(fresh?.context)state.context=fresh.context;
+      if(fresh?.onboarding)state.onboarding=fresh.onboarding;
+      if(fresh?.clearinghouse)state.clearinghouse=fresh.clearinghouse;
+      try{sessionStorage.removeItem('s4u_owner_bootstrap_cache')}catch{}
+    }catch{}
+  }
+
   if(state.clearinghouse?.completed===true){
     state.onboarding={...(state.onboarding||{}),completed:true};
   }
@@ -251,12 +262,14 @@ function errorView(e){
 
 async function owner(action,extra={}){
   const payload=window.S4UWithPortal?window.S4UWithPortal({action,...extra}):{action,...extra};
-  const cacheable=!extra||Object.keys(extra).length===0;
+  const cacheable=(!extra||Object.keys(extra).length===0)&&!ALWAYS_FRESH_ACTIONS.has(action);
   const key='owner:'+action;
   if(cacheable){
     let hit=pageCache.get(key);
     if(!hit){hit=readPersistentCache(key);if(hit)pageCache.set(key,hit)}
     if(hit&&Date.now()-hit.ts<PAGE_CACHE_TTL)return hit.data;
+  }else{
+    deletePageCache(key);
   }
   const data=await edge("owner-operator-portal-fast",payload);
   if(cacheable){const entry={ts:Date.now(),data};pageCache.set(key,entry);writePersistentCache(key,entry)}
@@ -931,7 +944,20 @@ function bindSpaNavigation(){
     const u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
     if(!/\.html$/i.test(u.pathname))return;
     const next=(u.pathname.split('/').pop()||'').toLowerCase();
-    if(onboardingLocked()&&a.closest('.side,.mobile-nav')&&!['onboarding.html','support.html'].includes(next)){e.preventDefault();return}
+    if(onboardingLocked()&&a.closest('.side,.mobile-nav')&&!['onboarding.html','support.html'].includes(next)){
+      e.preventDefault();
+      (async()=>{
+        try{
+          const fresh=await edge("owner-operator-bootstrap",{page:next.replace(".html","")});
+          if(fresh?.onboarding)state.onboarding=fresh.onboarding;
+          if(fresh?.clearinghouse)state.clearinghouse=fresh.clearinghouse;
+          if(state.clearinghouse?.completed===true)state.onboarding={...(state.onboarding||{}),completed:true};
+          syncActiveNav();
+          if(!onboardingLocked())await navigatePortal(u.pathname+u.search+u.hash);
+        }catch{}
+      })();
+      return;
+    }
     e.preventDefault();navigatePortal(u.pathname+u.search+u.hash);
   });
   addEventListener('popstate',()=>{renderCurrentPage().catch(e=>{console.error(e);errorView(e)})});
