@@ -476,3 +476,39 @@ body.doc-modal-open{overflow:hidden}
 .compliance-letter .letter-issued-box span{display:block;color:#66798e;font-size:11px;margin-top:2px}
 .compliance-letter .letter-verification-note{margin-top:16px;padding-top:12px;border-top:1px solid #dce5ef;font-size:10px;color:#6d7f92;letter-spacing:.03em}
 @media(max-width:700px){.compliance-letter .letter-title-row{flex-direction:column}.compliance-letter .letter-verification-grid{grid-template-columns:1fr}}
+
+/* Professional DOT consortium compliance letter */
+
+.professional-letter-sheet{position:relative;width:816px!important;min-height:1056px!important;padding:0!important;overflow:hidden!important;background:#fff!important;color:#21354d!important;font-family:Arial,Helvetica,sans-serif!important;box-shadow:0 2px 14px rgba(16,47,85,.12)!important}
+.professional-letter-sheet>*{position:relative;z-index:1}
+.professional-letter-watermark{position:absolute!important;z-index:0!important;inset:245px 95px 210px;display:flex;align-items:center;justify-content:center;opacity:.028;pointer-events:none}
+.professional-letter-watermark img{width:520px!important;max-width:100%!important;height:auto!important;filter:grayscale(100%)}
+.professional-letter-header{height:104px;background:#102f55;display:flex;align-items:center;justify-content:space-between;padding:0 54px;border-bottom:6px solid #f47b20}
+.professional-letter-brand img{display:block;width:225px!important;max-height:62px!important;object-fit:contain;object-position:left center}
+.professional-letter-mark{max-width:250px;text-align:right;color:#fff;font-size:10px;font-weight:900;letter-spacing:.14em;line-height:1.45}
+.professional-letter-meta{display:flex;justify-content:space-between;gap:24px;padding:20px 54px 15px;border-bottom:1px solid #d8e2ed}
+.professional-letter-meta>div{display:flex;flex-direction:column;gap:4px}
+.professional-letter-meta>div:last-child{text-align:right}
+.professional-letter-meta span{font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#7a8da2}
+.professional-letter-meta strong{font-size:11px;color:#173f75;letter-spacing:.02em}
+.professional-letter-title{padding:30px 54px 20px}
+.professional-letter-title.eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:#f47b20;margin-bottom:8px}
+.professional-letter-title h1{font-size:30px!important;line-height:1.12!important;margin:0 0 7px!important;color:#102f55!important;letter-spacing:-.02em}
+.professional-letter-title p{margin:0!important;color:#65798e;font-size:13px;line-height:1.5}
+.professional-letter-recipient{margin:0 54px 24px;border:1px solid #d4dfeb;border-left:5px solid #f47b20;background:#f8fbfe;padding:14px 17px;border-radius:2px}
+.professional-letter-recipient span{display:block;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#7b8da1;margin-bottom:4px}
+.professional-letter-recipient strong{display:block;font-size:18px;color:#102f55;margin-bottom:3px}
+.professional-letter-recipient div{font-size:12px;color:#52687d;line-height:1.45}
+.professional-letter-body{padding:0 54px;color:#30465d;font-size:13px;line-height:1.62}
+.professional-letter-body p{margin:0 0 15px}
+.professional-letter-body>p:first-child{color:#102f55;margin-bottom:12px}
+.professional-letter-facts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0}
+.professional-letter-facts>div{border:1px solid #d5e0eb;background:rgba(255,255,255,.96);padding:10px 12px;min-height:58px;border-radius:3px}
+.professional-letter-facts span{display:block;font-size:8px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#7a8da1;margin-bottom:4px}
+.professional-letter-facts strong{display:block;font-size:11px;line-height:1.35;color:#173f75}
+.professional-letter-issuer{margin:22px 54px 0;padding:14px 17px;border-top:2px solid #173f75;background:#f8fbfe;display:grid;grid-template-columns:1fr 1fr;column-gap:20px;row-gap:3px}
+.professional-letter-issuer strong{grid-column:1/-1;color:#102f55;font-size:13px}
+.professional-letter-issuer span{font-size:10px;color:#60758a}
+.professional-letter-footer{position:absolute!important;left:54px;right:54px;bottom:30px;padding-top:10px;border-top:1px solid #d8e2ed;display:flex;justify-content:space-between;gap:20px;color:#718399;font-size:8px;letter-spacing:.03em}
+.professional-letter-footer span:last-child{text-align:right}
+
