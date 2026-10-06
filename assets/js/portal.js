@@ -184,8 +184,20 @@ function renderShell(){
     else closeMenu();
   });
   mobile?.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
-  // Clicking the already-active navigation item should not reload the page.
-  document.querySelectorAll('.side .nav a.active,.mobile-nav-links a.active').forEach(a=>a.addEventListener('click',e=>e.preventDefault()));
+
+  // Bind the sidebar/mobile navigation directly. This runs on the anchor itself
+  // before the document-level SPA handler, so a navigation item cannot be
+  // swallowed by another click listener or a stale page state.
+  document.querySelectorAll('.side .nav a,.mobile-nav-links a').forEach(a=>{
+    a.addEventListener('click',async e=>{
+      if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+      if(a.classList.contains('onboarding-disabled'))return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const href=a.getAttribute('href')||'/dashboard.html';
+      try{await navigatePortal(href)}catch(err){console.error(err);location.assign(href)}
+    });
+  });
 
   document.getElementById("signout-btn")?.addEventListener("click",async()=>{
     try{await supabase.auth.signOut({scope:'local'})}catch{}
