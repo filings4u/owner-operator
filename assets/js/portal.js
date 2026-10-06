@@ -554,12 +554,12 @@ async function loadConsortium(){
  const d=await owner("consortium");
  const enroll=d.enrollments||d.consortium_enrollments||[], pools=d.pools||[];
  document.getElementById("page-content").innerHTML=
- pageHead("RANDOM TESTING","Consortium / Random Pool","Owner-operators generally participate in a consortium for random testing. Track your enrollment and pool-related records here.")+
- `<div class="notice">Your C/TPA or consortium may administer random testing and related program functions. Keep the enrollment status and supporting documents current.</div>
- <div class="grid grid-2" style="margin-top:18px">
+ `<div class="consortium-page">${pageHead("RANDOM TESTING","Consortium / Random Pool","Owner-operators generally participate in a consortium for random testing. Track your enrollment and pool-related records here.")}
+ <div class="notice">Your C/TPA or consortium may administer random testing and related program functions. Keep the enrollment status and supporting documents current.</div>
+ <div class="grid grid-2 consortium-grid" style="margin-top:18px">
  <div class="card"><h2>Consortium enrollment</h2>${table(["Status","Agency","Effective","Expires"],enroll.map(x=>`<tr><td>${status(x.status)}</td><td>${esc(x.dot_agency||"FMCSA")}</td><td>${fmt(x.effective_date)}</td><td>${fmt(x.expiration_date)}</td></tr>`))}</div>
  <div class="card"><h2>Pool information</h2>${table(["Pool","Status","Agency"],pools.map(x=>`<tr><td>${esc(x.name||x.pool_name||x.id)}</td><td>${status(x.status)}</td><td>${esc(x.dot_agency||"FMCSA")}</td></tr>`))}</div>
- </div>`;
+ </div></div>`;
 }
 
 async function loadTesting(){

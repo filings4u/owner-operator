@@ -534,3 +534,22 @@ body.doc-modal-open{overflow:hidden}
 .admin-document-sheet .document-watermark{opacity:.035}
 @media(max-width:860px){.doc-view-content>.admin-document-sheet{transform:scale(.82);transform-origin:top center;margin-bottom:-190px}}
 @media(max-width:700px){.doc-view-content>.admin-document-sheet{transform:scale(.58);margin-bottom:-430px}}
+
+/* Consortium / Random Pool: match portal typography and keep tables inside cards */
+.consortium-page .notice{font-size:.875rem}
+.consortium-page .card{min-width:0;padding:18px}
+.consortium-page .card h2{font-size:1.15rem;margin-bottom:10px}
+.consortium-page .table-wrap{width:100%;max-width:100%;overflow:hidden;border-radius:12px}
+.consortium-page table{width:100%;min-width:0;table-layout:auto}
+.consortium-page th,.consortium-page td{padding:10px 12px;font-size:.82rem;white-space:normal}
+.consortium-page th{font-size:.7rem;letter-spacing:.045em}
+.consortium-page .status{padding:5px 8px;font-size:.7rem}
+.consortium-page td:first-child{min-width:0;overflow-wrap:anywhere}
+@media(max-width:1100px){
+  .consortium-page .consortium-grid{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .consortium-page .card{padding:14px}
+  .consortium-page th,.consortium-page td{padding:9px 8px;font-size:.78rem}
+  .consortium-page th{font-size:.66rem}
+}
