@@ -523,3 +523,14 @@ body.doc-modal-open{overflow:hidden}
 @media(max-width:1100px){.doc-view-content.certificate-document>.document-security-shell{transform:scale(.82);transform-origin:top left;margin-bottom:-145px}}
 @media(max-width:900px){.doc-view-content.certificate-document>.document-security-shell{transform:scale(.66);margin-bottom:-275px}}
 @media(max-width:700px){.doc-dialog-body{padding:10px}.doc-view-content.certificate-document>.document-security-shell{transform:scale(.48);margin-bottom:-430px}}
+
+/* 2026-10-06: Owner-Operator document renderer aligned to DOT Management */
+.admin-document-sheet{width:816px!important;max-width:816px!important;min-height:1056px!important;margin:0 auto!important;padding:42px 54px!important;background:#fff!important;color:#28384a!important;box-sizing:border-box!important;line-height:1.6!important;box-shadow:0 2px 12px rgba(16,47,85,.08)}
+.admin-document-sheet .document-security-shell{min-height:972px;overflow:hidden}
+.admin-document-sheet .preview-brand{display:flex;align-items:center;justify-content:space-between;gap:15px;border-bottom:4px solid #24467f;padding-bottom:14px;margin-bottom:30px}
+.admin-document-sheet .preview-brand img{width:190px;max-height:58px;object-fit:contain;object-position:left center}
+.admin-document-sheet .preview-brand span{color:#f47b20;font-size:10px;font-weight:900;letter-spacing:.08em}
+.admin-document-sheet .preview-content{min-height:0}
+.admin-document-sheet .document-watermark{opacity:.035}
+@media(max-width:860px){.doc-view-content>.admin-document-sheet{transform:scale(.82);transform-origin:top center;margin-bottom:-190px}}
+@media(max-width:700px){.doc-view-content>.admin-document-sheet{transform:scale(.58);margin-bottom:-430px}}
