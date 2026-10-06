@@ -42,6 +42,7 @@ const featureByPage={
 const state={session:null,context:null,entitlements:{},permissions:[],onboarding:null,clearinghouse:null};
 const pageCache=new Map();
 const PAGE_CACHE_TTL=30*1000;
+const STALE_CACHE_TTL=10*60*1000;
 const ALWAYS_FRESH_ACTIONS=new Set();
 const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:v2:';
 const PREFETCH_ACTIONS=['overview','profile','drivers','programs','consortium','testing','results','compliance','rtd','documents','reports','billing','notifications','audit'];
