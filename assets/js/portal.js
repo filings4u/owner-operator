@@ -649,67 +649,13 @@ function ensureDocumentViewer(){
  if(el)return el;
  el=document.createElement("dialog");
  el.id="document-viewer-dialog";el.className="doc-dialog";
- el.innerHTML=`<div class="doc-dialog-panel" role="document"><div class="doc-dialog-head"><strong id="doc-modal-title">Document</strong><div class="doc-actions"><button type="button" class="btn btn-primary" id="doc-modal-download">Download PDF</button><button type="button" class="btn btn-secondary" data-close-doc>Close</button></div></div><div class="doc-dialog-body"><iframe id="doc-view-frame" title="Document viewer" sandbox="allow-same-origin"></iframe></div></div>`;
+ el.innerHTML=`<div class="doc-dialog-panel" role="document"><div class="doc-dialog-head"><strong id="doc-modal-title">Document</strong><div class="doc-actions"><button type="button" class="btn btn-primary" id="doc-modal-download">Download PDF</button><button type="button" class="btn btn-secondary" data-close-doc>Close</button></div></div><div class="doc-dialog-body"><div id="doc-view-content" class="doc-view-content" role="document"></div></div></div>`;
  document.body.appendChild(el);
  const close=()=>{try{el.close()}catch{} document.body.classList.remove("doc-modal-open")};
  el.querySelector("[data-close-doc]")?.addEventListener("click",close);
  el.addEventListener("click",e=>{if(e.target===el)close()});
  el.addEventListener("cancel",e=>{e.preventDefault();close()});
  return el;
-}
-
-function documentViewerSrcdoc(doc){
- const body=documentBodyHtml(doc),certificate=isCertificateDocument(doc);
- return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
- *{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#183653}body{padding:24px}img{max-width:100%!important;height:auto!important}.doc-sheet{width:min(760px,100%);margin:0 auto;background:#fff;padding:38px 42px;box-sizing:border-box;color:#183653;font-size:14px;line-height:1.55;box-shadow:0 2px 12px rgba(16,47,85,.08)}.doc-sheet h1{font-size:26px;line-height:1.2;color:#102f55;margin:14px 0 20px}.doc-brand{background:#102f55;margin:-38px -42px 26px;padding:20px 28px}.doc-brand img{display:block;max-width:210px!important;max-height:58px!important;object-fit:contain}.doc-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}.doc-meta-grid>div{border:1px solid #dce5ef;border-radius:9px;padding:10px 12px}.doc-meta-grid span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7f93;margin-bottom:4px}.doc-meta-grid strong{color:#102f55}.doc-rendered-content{overflow-wrap:anywhere}.doc-rendered-content table{max-width:100%!important}.doc-rendered-content img{max-width:100%!important;height:auto!important}.doc-legal{margin-top:28px;padding-top:16px;border-top:1px solid #dce5ef;font-size:11px;color:#708197}.document-security-shell{position:relative;overflow:hidden}.document-security-shell>*{position:relative;z-index:1}.document-watermark{position:absolute;inset:74px 24px 36px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.065;z-index:0}.document-watermark img{max-width:72%!important;max-height:72%!important;object-fit:contain;filter:grayscale(100%)}.document-security-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:0 0 12px;border-bottom:1px solid #dce5ef;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#617389}.document-security-bottom{margin-top:18px;padding-top:12px;border-top:1px solid #dce5ef;font-size:10px;color:#708197;letter-spacing:.05em;text-align:center}.certificate-tracking{display:flex;justify-content:center;gap:10px;align-items:baseline;margin:0 0 12px}.certificate-tracking span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#7b8ca0}.certificate-tracking strong{font-size:14px;color:#173f75}
-
- .professional-letter-sheet{position:relative;width:816px!important;min-height:1056px!important;padding:0!important;overflow:hidden!important;background:#fff!important;color:#21354d!important;font-family:Arial,Helvetica,sans-serif!important;box-shadow:0 2px 14px rgba(16,47,85,.12)!important}
- .professional-letter-sheet>*{position:relative;z-index:1}
- .professional-letter-watermark{position:absolute!important;z-index:0!important;inset:245px 95px 210px;display:flex;align-items:center;justify-content:center;opacity:.028;pointer-events:none}
- .professional-letter-watermark img{width:520px!important;max-width:100%!important;height:auto!important;filter:grayscale(100%)}
- .professional-letter-header{height:104px;background:#102f55;display:flex;align-items:center;justify-content:space-between;padding:0 54px;border-bottom:6px solid #f47b20}
- .professional-letter-brand img{display:block;width:225px!important;max-height:62px!important;object-fit:contain;object-position:left center}
- .professional-letter-mark{max-width:250px;text-align:right;color:#fff;font-size:10px;font-weight:900;letter-spacing:.14em;line-height:1.45}
- .professional-letter-meta{display:flex;justify-content:space-between;gap:24px;padding:20px 54px 15px;border-bottom:1px solid #d8e2ed}
- .professional-letter-meta>div{display:flex;flex-direction:column;gap:4px}
- .professional-letter-meta>div:last-child{text-align:right}
- .professional-letter-meta span{font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#7a8da2}
- .professional-letter-meta strong{font-size:11px;color:#173f75;letter-spacing:.02em}
- .professional-letter-title{padding:30px 54px 20px}
- .professional-letter-title .eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:#f47b20;margin-bottom:8px}
- .professional-letter-title h1{font-size:30px!important;line-height:1.12!important;margin:0 0 7px!important;color:#102f55!important;letter-spacing:-.02em}
- .professional-letter-title p{margin:0!important;color:#65798e;font-size:13px;line-height:1.5}
- .professional-letter-recipient{margin:0 54px 24px;border:1px solid #d4dfeb;border-left:5px solid #f47b20;background:#f8fbfe;padding:14px 17px;border-radius:2px}
- .professional-letter-recipient span{display:block;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#7b8da1;margin-bottom:4px}
- .professional-letter-recipient strong{display:block;font-size:18px;color:#102f55;margin-bottom:3px}
- .professional-letter-recipient div{font-size:12px;color:#52687d;line-height:1.45}
- .professional-letter-body{padding:0 54px;color:#30465d;font-size:13px;line-height:1.62}
- .professional-letter-body p{margin:0 0 15px}
- .professional-letter-body>p:first-child{color:#102f55;margin-bottom:12px}
- .professional-letter-facts{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0}
- .professional-letter-facts>div{border:1px solid #d5e0eb;background:rgba(255,255,255,.96);padding:10px 12px;min-height:58px;border-radius:3px}
- .professional-letter-facts span{display:block;font-size:8px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#7a8da1;margin-bottom:4px}
- .professional-letter-facts strong{display:block;font-size:11px;line-height:1.35;color:#173f75}
- .professional-letter-issuer{margin:22px 54px 0;padding:14px 17px;border-top:2px solid #173f75;background:#f8fbfe;display:grid;grid-template-columns:1fr 1fr;column-gap:20px;row-gap:3px}
- .professional-letter-issuer strong{grid-column:1/-1;color:#102f55;font-size:13px}
- .professional-letter-issuer span{font-size:10px;color:#60758a}
- .professional-letter-footer{position:absolute!important;left:54px;right:54px;bottom:30px;padding-top:10px;border-top:1px solid #d8e2ed;display:flex;justify-content:space-between;gap:20px;color:#718399;font-size:8px;letter-spacing:.03em}
- .professional-letter-footer span:last-child{text-align:right}
- .certificate-sheet{width:1056px;max-width:1056px;min-height:816px;padding:36px 44px;box-shadow:0 3px 16px rgba(16,47,85,.12)}.certificate-topbrand{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #24467f;padding-bottom:12px;margin-bottom:18px}.certificate-topbrand img{width:190px!important;max-height:54px!important;object-fit:contain;object-position:left center}.certificate-topbrand span{font-size:10px;font-weight:900;letter-spacing:.13em;color:#f47b20}.certificate-landscape{height:670px;border:8px double #24467f;padding:10px;background:linear-gradient(135deg,#fff 0%,#fbfcfe 55%,#f4f8fc 100%)}.certificate-inner{height:100%;border:1px solid #cfdae8;padding:28px 58px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}.certificate-kicker{font-size:11px;letter-spacing:.22em;font-weight:900;color:#f47b20;margin-bottom:8px}.certificate-title{font-family:Georgia,'Times New Roman',serif;font-size:50px;line-height:1;color:#24467f;font-weight:700;letter-spacing:.06em}.certificate-subtitle{font-family:Georgia,'Times New Roman',serif;font-size:24px;color:#24467f;font-weight:700;letter-spacing:.19em;margin-top:8px}.certificate-rule{width:210px;height:3px;background:#f47b20;margin:18px auto 14px}.certificate-reg{margin:0;color:#64758a;font-size:14px}.certificate-program{margin:6px 0 18px;color:#26384d;font-size:16px;font-weight:800}.certificate-presented{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#6b7d91;font-size:15px}.certificate-company{font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.15;color:#173f75;font-weight:700;margin:2px 0 4px}.certificate-usdot{font-size:17px;color:#24467f;font-weight:800;margin-bottom:16px}.certificate-copy{max-width:760px;margin:0 auto 18px;line-height:1.6;color:#40536a;font-size:14px}.certificate-dates{display:flex;justify-content:center;gap:80px;margin:4px 0 20px}.certificate-dates div{min-width:180px;border-top:1px solid #aebed0;padding-top:7px}.certificate-dates span,.certificate-issued span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#7b8ca0}.certificate-dates strong{display:block;margin-top:3px;color:#173f75;font-size:14px}.certificate-issued{width:72%;margin:4px auto 0;text-align:center;border-top:1px solid #7f93ab;padding-top:8px}.certificate-issued strong{display:block;color:#173f75;font-size:14px}.certificate-footerline{position:absolute;bottom:12px;left:0;right:0;font-size:9px;color:#8090a3;letter-spacing:.04em}
- @media(max-width:1120px){body{overflow:auto}.certificate-sheet{transform-origin:top left;transform:scale(.82);margin-bottom:-140px}}@media(max-width:900px){.certificate-sheet{transform:scale(.66);margin-bottom:-270px}}@media(max-width:700px){body{padding:10px}.doc-sheet:not(.certificate-sheet){padding:24px 20px}.doc-brand{margin:-24px -20px 20px;padding:18px 20px}.doc-meta-grid{grid-template-columns:1fr}.certificate-sheet{transform:scale(.48);margin-left:0;margin-bottom:-420px}}
- </style></head><body class="${certificate?'certificate-document':''}">${body}</body></html>`;
-}
-
-let html2pdfLoadPromise=null;
-function ensureHtml2Pdf(){
- if(typeof html2pdf==="function")return Promise.resolve();
- if(html2pdfLoadPromise)return html2pdfLoadPromise;
- html2pdfLoadPromise=new Promise((resolve,reject)=>{
-   const existing=document.querySelector('script[data-s4u-html2pdf]');
-   if(existing){existing.addEventListener('load',()=>typeof html2pdf==="function"?resolve():reject(new Error("PDF generator failed to initialize.")),{once:true});existing.addEventListener('error',()=>reject(new Error("PDF generator could not be loaded.")),{once:true});return}
-   const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.async=true;s.dataset.s4uHtml2pdf='1';s.crossOrigin='anonymous';s.onload=()=>typeof html2pdf==="function"?resolve():reject(new Error("PDF generator failed to initialize."));s.onerror=()=>reject(new Error("PDF generator could not be loaded."));document.head.appendChild(s);
- });
- return html2pdfLoadPromise;
 }
 
 async function waitForPdfFrame(frame){
@@ -781,7 +727,7 @@ async function downloadDocumentPdf(doc){
 
 function bindDocumentActions(){
  document.querySelectorAll(".doc-view-btn").forEach(btn=>btn.addEventListener("click",async()=>{
-   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);const modal=ensureDocumentViewer();modal.querySelector("#doc-modal-title").textContent=doc.title||doc.display_title||doc.file_name||"Document";const frame=modal.querySelector("#doc-view-frame");frame.srcdoc=documentViewerSrcdoc(doc);const dl=modal.querySelector("#doc-modal-download");dl.onclick=()=>downloadDocumentPdf(doc);document.body.classList.add("doc-modal-open");if(typeof modal.showModal==="function")modal.showModal();else modal.setAttribute("open","")}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
+   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);const modal=ensureDocumentViewer();modal.querySelector("#doc-modal-title").textContent=doc.title||doc.display_title||doc.file_name||"Document";const view=modal.querySelector("#doc-view-content");view.innerHTML=documentBodyHtml(doc);view.classList.toggle("certificate-document",isCertificateDocument(doc));const dl=modal.querySelector("#doc-modal-download");dl.onclick=()=>downloadDocumentPdf(doc);document.body.classList.add("doc-modal-open");if(typeof modal.showModal==="function")modal.showModal();else modal.setAttribute("open","")}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
  }));
  document.querySelectorAll(".doc-download-btn").forEach(btn=>btn.addEventListener("click",async()=>{
    try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);await downloadDocumentPdf(doc)}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
