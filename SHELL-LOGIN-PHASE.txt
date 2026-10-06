@@ -1,0 +1,18 @@
+OWNER-OPERATOR PORTAL — SHELL + LOGIN PHASE
+
+Completed in this package:
+- Owner-operator login rebuilt from the working DOT C/TPA login shell
+- Forgot-password page rebuilt from the DOT C/TPA flow
+- Reset-password page rebuilt from the DOT C/TPA flow
+- Cloudflare Turnstile added to sign-in and forgot-password
+- screenings4u logo/favicon copied from the working DOT C/TPA portal
+- Owner portal now uses an isolated Supabase auth storage key
+- Owner shell rebuilt to visually match the DOT C/TPA portal
+- Desktop sidebar, mobile navigation sheet, clock, text-size controls, support, and sign-out included
+- Existing owner page loaders/data wiring left in place for the next phase
+
+Domain:
+owner-operator.screenings4u.com
+
+Next phase:
+Wire and validate each owner-operator page individually against the owner-operator runtime/functions.

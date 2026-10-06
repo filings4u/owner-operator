@@ -1,0 +1,9 @@
+Owner-Operator FMCSA Clearinghouse Setup Phase
+
+- Adds clearinghouse-setup.html inside the Owner-Operator portal.
+- Adds required post-onboarding Clearinghouse designation gate.
+- Uses official FMCSA flow: Employer Dashboard > Manage > C/TPAs > search/designate C/TPA > permissions > Save.
+- C/TPA display name: Workforce DOT | screenings4u.
+- Required confirmations: Report Violations, Report RTD Information, Conduct Queries.
+- Register/Login/official FMCSA instruction links open in a new tab so the portal session remains open.
+- Confirmation is recorded in owner_operator_clearinghouse_designations.

@@ -1,0 +1,6 @@
+Performance/CSS phase:
+• hidden desktop sidebar scrollbar
+• normalized clearinghouse page spacing and typography
+• one bootstrap request per protected page instead of repeated session/onboarding/clearinghouse calls
+• regular page data routed to owner-operator-portal-fast
+• cache version 20261005-owner-speedcss1
