@@ -485,8 +485,13 @@ async function loadDashboard(){
   </div>
   <div class="grid grid-2 dashboard-sections" style="margin-top:16px">
     <div class="card"><h2>Recent testing</h2>${table(["Order","Reason","Test","Status","Must test by","Created"],testing.slice(0,8).map(x=>`<tr><td>${esc(x.order_number||x.id)}</td><td>${esc(x.reason)}</td><td>${esc(x.test_type)}</td><td>${status(x.status)}</td><td>${deadlineCell(x)}</td><td>${fmt(x.created_at)}</td></tr>`))}</div>
-    <div class="card"><h2>Program documents</h2>${table(["Document","Status","Valid until"],docs.slice(0,8).map(x=>`<tr><td>${esc(x.title)}</td><td>${status(x.status)}</td><td>${fmt(x.valid_until)}</td></tr>`))}</div>
+    <div class="card"><h2>Program documents</h2>${table(["Document","Status","Valid until","Download"],docs.slice(0,8).map(x=>`<tr><td>${esc(x.title||x.display_title||x.file_name||"DOT Document")}</td><td>${status(x.document_status||x.status||"published")}</td><td>${fmt(x.valid_until||x.expires_on)}</td><td><button class="btn btn-primary dashboard-doc-download" type="button" data-id="${esc(x.id)}" data-source="${esc(x.source_type||"dot_document")}">Download PDF</button></td></tr>`))}</div>
   </div></div>`;
+ document.querySelectorAll(".dashboard-doc-download").forEach(btn=>btn.addEventListener("click",async()=>{
+   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);await downloadDocumentPdf(doc)}
+   catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}
+   finally{btn.disabled=false}
+ }));
 }
 
 async function loadProfile(){
