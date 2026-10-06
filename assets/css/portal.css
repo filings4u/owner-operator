@@ -553,3 +553,35 @@ body.doc-modal-open{overflow:hidden}
   .consortium-page th,.consortium-page td{padding:9px 8px;font-size:.78rem}
   .consortium-page th{font-size:.66rem}
 }
+
+
+/* ============================================================
+   Owner-Operator fast loading + useful empty states + users/access
+   ============================================================ */
+html.s4u-auth-pending body{visibility:visible!important}
+.portal-page-spinner{min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:.75rem;font-weight:750}
+.portal-spinner-ring{width:34px;height:34px;border:3px solid #dce6ef;border-top-color:var(--orange);border-radius:50%;animation:s4uPortalSpin .65s linear infinite}
+@keyframes s4uPortalSpin{to{transform:rotate(360deg)}}
+#page-content[aria-busy="true"]{opacity:1}
+.portal-empty-state{max-width:720px;margin:18px auto;display:flex;align-items:flex-start;justify-content:center;gap:14px;padding:24px;border:1px dashed #cbd8e5;border-radius:14px;background:rgba(255,255,255,.62);text-align:left}
+.portal-empty-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:50%;background:#eaf5ef;color:#17764a;font-weight:950}
+.portal-empty-state h3{margin:1px 0 5px;color:var(--navy);font-size:.875rem}
+.portal-empty-state p{margin:0;color:var(--muted);font-size:.75rem;line-height:1.55}
+.access-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.access-role-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 8px 24px rgba(24,54,83,.05)}
+.access-role-card.admin{border-top:3px solid var(--orange)}
+.access-role-card.staff{border-top:3px solid #4f77a8}
+.access-role-badge{font-size:.625rem;font-weight:900;letter-spacing:.08em;color:var(--orange);margin-bottom:7px}
+.access-role-card.staff .access-role-badge{color:#4f77a8}
+.access-role-card h3{margin:0 0 6px;color:var(--navy);font-size:.9375rem}
+.access-role-card p{margin:0;font-size:.71875rem;line-height:1.55;color:var(--muted)}
+.users-card{padding:0;overflow:hidden}
+.users-card-head{padding:18px 20px 4px}.users-card-head h2{margin:0 0 4px;font-size:1rem}.users-card-head p{margin:0;font-size:.71875rem}
+.users-card .table-wrap{border:0;border-radius:0}
+.access-chip{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:.65625rem;font-weight:900}
+.access-chip.admin{background:#fff0e6;color:#a64b00}.access-chip.staff{background:#eaf1f8;color:#345d88}
+.user-access-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.user-access-actions select{width:auto;min-width:100px;padding:7px 9px;font-size:.6875rem}
+.user-access-actions .btn{padding:7px 10px;font-size:.65625rem}
+.popup-card .field-help{font-size:.6875rem;margin:3px 0 0;color:var(--muted)}
+@media(max-width:760px){.access-role-grid{grid-template-columns:1fr}.portal-empty-state{margin:12px 0}.user-access-actions{align-items:stretch}.user-access-actions select,.user-access-actions .btn{width:100%}}

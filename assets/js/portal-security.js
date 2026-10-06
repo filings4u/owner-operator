@@ -2,7 +2,7 @@
 const P=location.pathname.split('/').pop()?.toLowerCase()||'index.html';
 if(['login.html','auth-handoff.html','workspace.html','404.html','forgot-password.html','reset-password.html'].includes(P)){document.documentElement.classList.remove('s4u-auth-pending');return}
 const C=window.PORTAL_CONFIG||window.S4U||{};const URL=C.workforceUrl||C.url;const KEY=C.workforceKey||C.key;const CODE=C.portalCode||C.portal_code;
-const IDLE=10*60*1000,WARN=60*1000,KEY_LAST='s4u_idle_last:'+location.hostname,BOOT_KEY='s4u_owner_bootstrap_cache',BOOT_TTL=0;let last=Date.now(),warnOpen=false,timer=null,countTimer=null,lastActivityWrite=0;
+const IDLE=10*60*1000,WARN=60*1000,KEY_LAST='s4u_idle_last:'+location.hostname,BOOT_KEY='s4u_owner_bootstrap_cache',BOOT_TTL=5*60*1000;let last=Date.now(),warnOpen=false,timer=null,countTimer=null,lastActivityWrite=0;
 const sb=window.S4UGetSupabaseClient?.();
 function safeLast(){const n=Number(localStorage.getItem(KEY_LAST)||0);return Number.isFinite(n)&&n>0?n:last}
 function setLast(){last=Date.now();try{localStorage.setItem(KEY_LAST,String(last))}catch{};hideWarn();schedule()}
@@ -50,10 +50,21 @@ async function guard(){
   };
 
   let r={ok:true,status:200},d=null;
-  // Always verify Owner-Operator access/onboarding live. A stale bootstrap cache
-  // can incorrectly leave the sidebar locked after onboarding is completed.
-  try{sessionStorage.removeItem(BOOT_KEY)}catch{}
-  ({r,d}=await requestContext());
+  // Fast path: completed Owner-Operator workspaces can render from a recent
+  // authenticated snapshot immediately. Every protected API call still verifies
+  // the live session server-side; this only removes the visible page-load delay.
+  try{
+    const cached=JSON.parse(sessionStorage.getItem(BOOT_KEY)||'null');
+    const unlocked=cached?.data?.onboarding?.completed===true||cached?.data?.clearinghouse?.completed===true;
+    if(cached&&cached.user_id===session.user.id&&unlocked&&Date.now()-Number(cached.ts||0)<BOOT_TTL)d=cached.data||null;
+  }catch{}
+  if(!d){
+    ({r,d}=await requestContext());
+    if(r.ok&&!d?.error){try{sessionStorage.setItem(BOOT_KEY,JSON.stringify({ts:Date.now(),user_id:session.user.id,data:d}))}catch{}}
+  }else{
+    // Revalidate silently after the page is already usable.
+    setTimeout(async()=>{try{const fresh=await requestContext();if(fresh.r.ok&&!fresh.d?.error){sessionStorage.setItem(BOOT_KEY,JSON.stringify({ts:Date.now(),user_id:session.user.id,data:fresh.d}));window.__S4U_OWNER_BOOTSTRAP__=fresh.d;window.__S4U_OWNER_AUTH_CONTEXT__=fresh.d.context||fresh.d}}catch{}},0);
+  }
 
   // Owner-Operator is a single-organization portal. If the backend returns more
   // than one eligible subscription/workspace, select the strongest active plan
