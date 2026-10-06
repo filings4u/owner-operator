@@ -44,8 +44,8 @@ const pageCache=new Map();
 const PAGE_CACHE_TTL=30*1000;
 const ALWAYS_FRESH_ACTIONS=new Set();
 const PERSIST_CACHE_PREFIX='s4u_owner_page_cache:v2:';
-const PREFETCH_ACTIONS=['overview','programs','consortium','testing','results','documents'];
-function readPersistentCache(key){try{const x=JSON.parse(sessionStorage.getItem(PERSIST_CACHE_PREFIX+key)||'null');if(x&&Date.now()-Number(x.ts||0)<PAGE_CACHE_TTL)return x}catch{}return null}
+const PREFETCH_ACTIONS=['overview','profile','drivers','programs','consortium','testing','results','compliance','rtd','documents','reports','billing','notifications','audit'];
+function readPersistentCache(key,ttl=STALE_CACHE_TTL){try{const x=JSON.parse(sessionStorage.getItem(PERSIST_CACHE_PREFIX+key)||'null');if(x&&Date.now()-Number(x.ts||0)<ttl)return x}catch{}return null}
 function writePersistentCache(key,entry){try{sessionStorage.setItem(PERSIST_CACHE_PREFIX+key,JSON.stringify(entry))}catch{}}
 function deletePageCache(key){pageCache.delete(key);try{sessionStorage.removeItem(PERSIST_CACHE_PREFIX+key)}catch{}}
 let navigating=false;
@@ -272,9 +272,13 @@ async function owner(action,extra={}){
   if(cacheable){
     let hit=pageCache.get(key);
     if(!hit){hit=readPersistentCache(key);if(hit)pageCache.set(key,hit)}
-    if(hit&&Date.now()-hit.ts<PAGE_CACHE_TTL)return hit.data;
-  }else{
-    deletePageCache(key);
+    if(hit){
+      const age=Date.now()-Number(hit.ts||0);
+      if(age>PAGE_CACHE_TTL){
+        edge("owner-operator-portal-fast",payload).then(data=>{const entry={ts:Date.now(),data};pageCache.set(key,entry);writePersistentCache(key,entry)}).catch(()=>{});
+      }
+      return hit.data;
+    }
   }
   const data=await edge("owner-operator-portal-fast",payload);
   if(cacheable){const entry={ts:Date.now(),data};pageCache.set(key,entry);writePersistentCache(key,entry)}
@@ -538,15 +542,47 @@ async function loadProfile(){
 }
 
 async function loadDrivers(){
- const d=await owner("drivers"), rows=d.drivers||[],root=document.getElementById("page-content");
- root.innerHTML=pageHead("DRIVER","Driver record","View the driver records associated with your Owner-Operator account and send the official FMCSA limited-query consent form.")+
- `<div class="notice"><strong>FMCSA consent:</strong> The form sent here is the official FMCSA sample for <strong>general consent to limited Clearinghouse queries</strong>. Full and pre-employment queries require the driver to provide specific electronic consent inside the FMCSA Clearinghouse.</div>`+
- table(["Name","Employee #","Status","CDL","State","DOT agency","Consent"],rows.map(x=>`<tr><td>${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}</td><td>${esc(x.employee_number)}</td><td>${status(x.employment_status)}</td><td>${esc(x.cdl_number)}</td><td>${esc(x.cdl_state)}</td><td>${esc(x.dot_agency||"FMCSA")}</td><td><button class="btn btn-secondary driver-consent-btn" data-driver-id="${esc(x.id)}" data-driver-name="${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}" data-driver-email="${esc(x.email||'')}">Send Consent Form</button></td></tr>`))+
- `<div class="popup" id="driver-consent-popup"><div class="popup-card"><div class="section-kicker">FMCSA CLEARINGHOUSE</div><h2>Send limited-query consent form</h2><p id="driver-consent-copy">Send the official FMCSA sample general consent form to this driver.</p><form id="driver-consent-form" class="form-grid"><input type="hidden" name="driver_id"><div class="field full"><label>Driver email</label><input type="email" name="email" required autocomplete="email"></div><div class="field full"><div id="driver-consent-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Send FMCSA Consent Form</button><button class="btn btn-secondary" type="button" id="driver-consent-cancel">Cancel</button></div></div></form></div></div>`;
+ const d=await owner("drivers"), rows=d.drivers||[],root=document.getElementById("page-content"),canManage=d.can_manage===true;
+ const manageAction=canManage?`<button class="btn btn-primary" id="add-driver-open" type="button">+ Add Driver</button>`:"";
+ root.innerHTML=`<div class="driver-page">${pageHead("DRIVER","Driver records","Manage the drivers associated with your Owner-Operator account. Driver records remain in your account after termination.",manageAction)}
+ <div class="notice"><strong>FMCSA consent:</strong> The form sent here is the official FMCSA sample for <strong>general consent to limited Clearinghouse queries</strong>. Full and pre-employment queries require the driver to provide specific electronic consent inside the FMCSA Clearinghouse.</div>
+ ${table(["Name","Employee #","Status","CDL","State","DOT agency","Consent",...(canManage?["Manage"]:[])],rows.map(x=>{
+   const terminated=String(x.employment_status||"").toLowerCase()==="terminated";
+   return `<tr><td><strong>${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}</strong>${terminated&&x.termination_date?`<small class="driver-meta">Terminated ${fmt(x.termination_date)}</small>`:""}</td><td>${esc(x.employee_number)}</td><td>${status(x.employment_status)}</td><td>${esc(x.cdl_number)}</td><td>${esc(x.cdl_state)}</td><td>${esc(x.dot_agency||"FMCSA")}</td><td>${terminated?`<span class="muted-action">—</span>`:`<button class="btn btn-secondary driver-consent-btn" data-driver-id="${esc(x.id)}" data-driver-name="${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}" data-driver-email="${esc(x.email||'')}">Send Consent</button>`}</td>${canManage?`<td>${terminated?`<span class="muted-action">Record retained</span>`:`<button class="btn btn-danger terminate-driver-btn" data-driver-id="${esc(x.id)}" data-driver-name="${esc([x.first_name,x.last_name].filter(Boolean).join(" "))}">Terminate</button>`}</td>`:""}</tr>`;
+ }),emptyState("No drivers yet","Add your first driver to begin managing testing and Clearinghouse consent records.","♟",canManage?`<button class="btn btn-primary" id="empty-add-driver" type="button">Add Driver</button>`:""))}
+ <div class="popup" id="driver-consent-popup"><div class="popup-card"><div class="section-kicker">FMCSA CLEARINGHOUSE</div><h2>Send limited-query consent form</h2><p id="driver-consent-copy">Send the official FMCSA sample general consent form to this driver.</p><form id="driver-consent-form" class="form-grid"><input type="hidden" name="driver_id"><div class="field full"><label>Driver email</label><input type="email" name="email" required autocomplete="email"></div><div class="field full"><div id="driver-consent-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Send FMCSA Consent Form</button><button class="btn btn-secondary" type="button" id="driver-consent-cancel">Cancel</button></div></div></form></div></div>
+ ${canManage?`<div class="popup" id="add-driver-popup"><div class="popup-card driver-popup-card"><div class="section-kicker">DRIVER MANAGEMENT</div><h2>Add driver</h2><p>Add a driver to this Owner-Operator account. The record remains in Supabase if the driver is later terminated.</p><form id="add-driver-form" class="form-grid">
+   <div class="field"><label>First name <span class="req">*</span></label><input name="first_name" required autocomplete="given-name"></div>
+   <div class="field"><label>Last name <span class="req">*</span></label><input name="last_name" required autocomplete="family-name"></div>
+   <div class="field"><label>Employee #</label><input name="employee_number" placeholder="Auto-generated if blank"></div>
+   <div class="field"><label>Hire date</label><input type="date" name="hire_date"></div>
+   <div class="field"><label>Email</label><input type="email" name="email" autocomplete="email"></div>
+   <div class="field"><label>Mobile</label><input name="mobile" autocomplete="tel"></div>
+   <div class="field"><label>CDL number</label><input name="cdl_number"></div>
+   <div class="field"><label>CDL state</label><input name="cdl_state" maxlength="2" placeholder="IL"></div>
+   <div class="field"><label>DOT agency</label><select name="dot_agency"><option value="FMCSA">FMCSA</option><option value="FAA">FAA</option><option value="FRA">FRA</option><option value="FTA">FTA</option><option value="PHMSA">PHMSA</option><option value="USCG">USCG</option></select></div>
+   <div class="field"><label>Date of birth</label><input type="date" name="date_of_birth"></div>
+   <div class="field full driver-check-row"><label><input type="checkbox" name="dot_covered" checked> DOT-covered driver</label><label><input type="checkbox" name="safety_sensitive" checked> Safety-sensitive</label></div>
+   <div class="field full"><div id="add-driver-msg" class="form-message"></div><div class="actions"><button class="btn btn-primary" type="submit">Add Driver</button><button class="btn btn-secondary" type="button" id="add-driver-cancel">Cancel</button></div></div>
+ </form></div></div>
+ <div class="popup" id="terminate-driver-popup"><div class="popup-card"><div class="section-kicker">DRIVER MANAGEMENT</div><h2>Terminate driver</h2><p id="terminate-driver-copy">Terminate this driver?</p><p class="termination-note">The driver record will remain in Supabase and in your account history.</p><form id="terminate-driver-form"><input type="hidden" name="driver_id"><div class="field"><label>Termination date</label><input type="date" name="termination_date" required></div><div id="terminate-driver-msg" class="form-message"></div><div class="actions"><button class="btn btn-danger" type="submit">Terminate Driver</button><button class="btn btn-secondary" type="button" id="terminate-driver-cancel">Cancel</button></div></form></div></div>`:""}
+ </div>`;
+
  const pop=document.getElementById('driver-consent-popup'),form=document.getElementById('driver-consent-form'),msg=document.getElementById('driver-consent-msg'),copy=document.getElementById('driver-consent-copy');
  document.querySelectorAll('.driver-consent-btn').forEach(btn=>btn.addEventListener('click',()=>{form.elements.driver_id.value=btn.dataset.driverId||'';form.elements.email.value=btn.dataset.driverEmail||'';copy.textContent=`Send the official FMCSA sample general consent form to ${btn.dataset.driverName||'this driver'}.`;msg.textContent='';msg.className='form-message';pop.classList.add('open');form.elements.email.focus()}));
  document.getElementById('driver-consent-cancel')?.addEventListener('click',()=>pop.classList.remove('open'));
- form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]');btn.disabled=true;msg.textContent='Sending consent form…';msg.className='form-message';try{const payload=Object.fromEntries(new FormData(form).entries());await edge('owner-operator-driver-consent',{action:'send_limited_query_consent',...payload});msg.textContent='FMCSA consent form sent.';msg.className='form-message success';deletePageCache('owner:drivers');setTimeout(()=>pop.classList.remove('open'),800)}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
+ form?.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]');btn.disabled=true;msg.textContent='Sending consent form…';msg.className='form-message';try{const payload=Object.fromEntries(new FormData(form).entries());await edge('owner-operator-driver-consent',{action:'send_limited_query_consent',...payload});msg.textContent='FMCSA consent form sent.';msg.className='form-message success';deletePageCache('owner:drivers');setTimeout(()=>pop.classList.remove('open'),500)}catch(err){msg.textContent=err?.message||String(err);msg.className='form-message error'}finally{btn.disabled=false}});
+
+ if(canManage){
+   const addPop=document.getElementById('add-driver-popup'),addForm=document.getElementById('add-driver-form'),addMsg=document.getElementById('add-driver-msg');
+   const openAdd=()=>{addMsg.textContent='';addMsg.className='form-message';addPop.classList.add('open');addForm.elements.first_name.focus()};
+   document.getElementById('add-driver-open')?.addEventListener('click',openAdd);document.getElementById('empty-add-driver')?.addEventListener('click',openAdd);document.getElementById('add-driver-cancel')?.addEventListener('click',()=>addPop.classList.remove('open'));
+   addForm?.addEventListener('submit',async e=>{e.preventDefault();const btn=addForm.querySelector('button[type="submit"]'),fd=new FormData(addForm);btn.disabled=true;addMsg.textContent='Adding driver…';addMsg.className='form-message';try{const driver=Object.fromEntries(fd.entries());driver.dot_covered=fd.get('dot_covered')==='on';driver.safety_sensitive=fd.get('safety_sensitive')==='on';await owner('add_driver',{driver});deletePageCache('owner:drivers');deletePageCache('owner:overview');addMsg.textContent='Driver added.';addMsg.className='form-message success';addForm.reset();setTimeout(async()=>{addPop.classList.remove('open');await loadDrivers()},250)}catch(err){addMsg.textContent=err?.message||String(err);addMsg.className='form-message error'}finally{btn.disabled=false}});
+   const termPop=document.getElementById('terminate-driver-popup'),termForm=document.getElementById('terminate-driver-form'),termMsg=document.getElementById('terminate-driver-msg'),termCopy=document.getElementById('terminate-driver-copy');
+   document.querySelectorAll('.terminate-driver-btn').forEach(btn=>btn.addEventListener('click',()=>{termForm.elements.driver_id.value=btn.dataset.driverId||'';termForm.elements.termination_date.value=new Date().toISOString().slice(0,10);termCopy.textContent=`Terminate ${btn.dataset.driverName||'this driver'}?`;termMsg.textContent='';termMsg.className='form-message';termPop.classList.add('open')}));
+   document.getElementById('terminate-driver-cancel')?.addEventListener('click',()=>termPop.classList.remove('open'));
+   termForm?.addEventListener('submit',async e=>{e.preventDefault();const btn=termForm.querySelector('button[type="submit"]'),fd=new FormData(termForm);btn.disabled=true;termMsg.textContent='Terminating driver…';termMsg.className='form-message';try{await owner('terminate_driver',{driver_id:fd.get('driver_id'),termination_date:fd.get('termination_date')});deletePageCache('owner:drivers');deletePageCache('owner:overview');termMsg.textContent='Driver terminated. The record has been retained.';termMsg.className='form-message success';setTimeout(async()=>{termPop.classList.remove('open');await loadDrivers()},250)}catch(err){termMsg.textContent=err?.message||String(err);termMsg.className='form-message error'}finally{btn.disabled=false}});
+ }
 }
 
 async function loadPrograms(){
@@ -895,13 +931,13 @@ function warmPortalCache(){
   window.__S4U_OWNER_CACHE_WARMING__=true;
   const run=async()=>{
     const queue=PREFETCH_ACTIONS.filter(a=>{const k='owner:'+a;const m=pageCache.get(k)||readPersistentCache(k);if(m){pageCache.set(k,m);return false}return true});
-    const workers=Array.from({length:2},async()=>{
+    const workers=Array.from({length:4},async()=>{
       while(queue.length){const action=queue.shift();if(!action)break;try{await owner(action)}catch{}}
     });
     await Promise.all(workers);
     window.__S4U_OWNER_CACHE_WARMED__=true;
   };
-  if('requestIdleCallback' in window)requestIdleCallback(()=>run(),{timeout:1200});else setTimeout(run,700);
+  setTimeout(run,0);
 }
 function currentPage(){return (location.pathname.split("/").pop()||"dashboard.html").toLowerCase()}
 function onboardingLocked(){return !!(state.onboarding && state.onboarding.completed!==true && state.clearinghouse?.completed!==true)}
@@ -933,7 +969,7 @@ async function renderCurrentPage(){
   const root=document.getElementById('page-content');
   if(root){root.setAttribute('aria-busy','true');root.classList.toggle('dashboard-page',page==='dashboard.html')}
   let spinnerTimer=null;
-  if(root)spinnerTimer=setTimeout(()=>{if(root.getAttribute('aria-busy')==='true')root.innerHTML=pageSpinner()},120);
+  if(root)spinnerTimer=setTimeout(()=>{if(root.getAttribute('aria-busy')==='true')root.innerHTML=pageSpinner()},70);
   try{
     const required=featureByPage[page];
     if(required && state.entitlements && Object.keys(state.entitlements).length && state.entitlements[required]===false)throw new Error("This page is not included in your current Owner-Operator plan.");

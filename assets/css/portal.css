@@ -585,3 +585,54 @@ html.s4u-auth-pending body{visibility:visible!important}
 .user-access-actions .btn{padding:7px 10px;font-size:.65625rem}
 .popup-card .field-help{font-size:.6875rem;margin:3px 0 0;color:var(--muted)}
 @media(max-width:760px){.access-role-grid{grid-template-columns:1fr}.portal-empty-state{margin:12px 0}.user-access-actions{align-items:stretch}.user-access-actions select,.user-access-actions .btn{width:100%}}
+
+
+/* ============================================================
+   Owner-Operator portal final typography/alignment + driver management
+   ============================================================ */
+#page-content{width:min(100%,1200px);margin:0 auto;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:.875rem;line-height:1.45}
+#page-content .page-head{width:100%!important;max-width:none!important;margin:0 0 18px!important;align-items:flex-start}
+#page-content .page-head h1{font-size:1.72rem!important;line-height:1.12!important;letter-spacing:-.02em;margin:5px 0 6px!important}
+#page-content .page-head p{font-size:.88rem!important;line-height:1.5!important;margin:0!important;color:var(--muted);max-width:900px}
+#page-content .eyebrow{font-size:.66rem!important;letter-spacing:.09em}
+#page-content h2{font-size:1.12rem;line-height:1.25}
+#page-content p,#page-content .notice{font-size:.82rem;line-height:1.52}
+#page-content .card{font-size:.84rem}
+#page-content th{font-size:.66rem!important;padding:10px 12px!important;letter-spacing:.045em}
+#page-content td{font-size:.8rem!important;padding:11px 12px!important;line-height:1.4}
+#page-content .btn{font-size:.76rem;padding:9px 12px;border-radius:9px}
+#page-content label{font-size:.75rem}
+#page-content input,#page-content select,#page-content textarea{font-size:.82rem;padding:10px 11px}
+#page-content .status{font-size:.68rem;padding:5px 8px}
+#page-content .notice{margin-bottom:16px}
+
+.driver-page{display:grid;gap:0;width:100%}
+.driver-page .page-head{display:flex}
+.driver-page .page-head>.btn{flex:0 0 auto;margin-top:5px}
+.driver-page .table-wrap{width:100%;max-width:100%;overflow-x:auto}
+.driver-page table{min-width:0;width:100%;table-layout:auto}
+.driver-page th,.driver-page td{white-space:nowrap;vertical-align:middle}
+.driver-page td:first-child,.driver-page th:first-child{white-space:normal;min-width:130px}
+.driver-page .driver-meta{display:block;margin-top:3px;color:var(--muted);font-size:.68rem;font-weight:600}
+.driver-page .muted-action{color:var(--muted);font-size:.72rem}
+.driver-popup-card{max-width:720px}
+.driver-check-row{display:flex;gap:22px;align-items:center;flex-wrap:wrap;padding:5px 0}
+.driver-check-row label{display:flex;align-items:center;gap:8px;font-weight:750}
+.driver-check-row input{width:auto!important;margin:0}
+.termination-note{padding:10px 12px;background:#fff8f2;border:1px solid #f3d3b6;border-radius:9px;color:#7b4a1c!important}
+
+/* Cached pages render instantly; spinner is only shown when a true network wait occurs. */
+#page-content[aria-busy="true"]{opacity:1!important}
+.portal-page-spinner{min-height:180px}
+
+@media(max-width:980px){
+  #page-content{width:100%}
+  .driver-page .page-head{display:grid;gap:12px}
+  .driver-page .page-head>.btn{justify-self:start}
+  .driver-page table{min-width:920px}
+}
+@media(max-width:640px){
+  #page-content .page-head h1{font-size:1.5rem!important}
+  #page-content .page-head p{font-size:.84rem!important}
+  .driver-popup-card{max-height:88vh;overflow:auto}
+}
