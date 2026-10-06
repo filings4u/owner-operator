@@ -420,3 +420,8 @@ input::placeholder,textarea::placeholder{font-size:inherit}
 .doc-dialog-body iframe{display:block;width:100%;height:100%;border:0;background:#eef3f8}
 body.doc-modal-open{overflow:hidden}
 @media(max-width:700px){.doc-dialog{width:calc(100vw - 16px);height:calc(100vh - 16px)}.doc-dialog-head{align-items:flex-start;flex-direction:column}.doc-dialog-head .doc-actions{width:100%}.doc-dialog-head .btn{flex:1}}
+
+/* Certificate-aware Owner-Operator document rendering */
+.pdf-export-wrap.certificate-pdf-export{width:1056px;height:816px;background:#fff}
+.pdf-export-wrap.certificate-pdf-export .certificate-sheet{width:1056px;max-width:1056px;min-height:816px;height:816px;box-shadow:none}
+@media(min-width:1100px){.doc-dialog{width:min(1220px,96vw)}}

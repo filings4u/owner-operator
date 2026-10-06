@@ -578,7 +578,7 @@ async function loadDocuments(){
 
 const WORKFORCE_DOT_WHITE_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot2.png";
 function docMergeFields(doc){
- const ctx=state.context||{},owner=ctx.owner_operator||{},employer=ctx.employer||{},org=ctx.organization||{},meta=owner.metadata||{};
+ const ctx=state.context||{},owner=ctx.owner_operator||{},employer=ctx.employer||{},org=ctx.organization||{},meta=owner.metadata||{},dm=doc.metadata||{};
  const company=doc.recipient_name||doc.company_name||meta.company_name||owner.legal_name||employer.legal_name||org.legal_name||"—";
  const line1=meta.address_line1||employer.address_line1||org.address_line1||"";
  const line2=meta.address_line2||employer.address_line2||org.address_line2||"";
@@ -587,14 +587,19 @@ function docMergeFields(doc){
  const postal=meta.postal_code||employer.postal_code||org.postal_code||"";
  const locality=[city,region].filter(Boolean).join(", ")+(postal?` ${postal}`:"");
  const address=[line1,line2,locality].filter(Boolean).join("<br>")||"—";
+ const niceDate=(v)=>{if(!v)return"—";const x=new Date(v);return Number.isNaN(x.getTime())?String(v):x.toLocaleDateString("en-US",{year:"numeric",month:"numeric",day:"numeric"})};
  const rawDate=doc.pushed_at||doc.updated_at||doc.signed_at||doc.uploaded_at||new Date().toISOString();
- const d=new Date(rawDate),date=Number.isNaN(d.getTime())?String(rawDate):d.toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+ const date=niceDate(rawDate);
+ const effective=doc.effective_date||dm.effective_date||doc.pushed_at||doc.updated_at||doc.uploaded_at||rawDate;
+ const expiration=doc.valid_until||doc.expires_on||doc.expires_at||dm.expiration_date||dm.valid_until||(()=>{const x=new Date(effective);if(Number.isNaN(x.getTime()))return null;x.setFullYear(x.getFullYear()+1);return x.toISOString()})();
  return {
    date,company_name:company,company,usdot:owner.dot_number||employer.dot_number||"—",dot_number:owner.dot_number||employer.dot_number||"—",
    mc_number:owner.mc_number||employer.mc_number||"—",address,address_line1:line1||"—",address_line2:line2||"",city:city||"—",state:region||"—",zip:postal||"—",postal_code:postal||"—",
-   email:owner.email||org.primary_email||"—",phone:owner.phone||employer.phone||org.phone||"—",owner_name:[meta.owner_first_name,meta.owner_last_name].filter(Boolean).join(" ")||"—"
+   email:owner.email||org.primary_email||"—",phone:owner.phone||employer.phone||org.phone||"—",owner_name:[meta.owner_first_name,meta.owner_last_name].filter(Boolean).join(" ")||"—",
+   effective_date:niceDate(effective),expiration_date:niceDate(expiration),valid_until:niceDate(expiration)
  };
 }
+function isCertificateDocument(doc){return String(doc?.document_type||"")==="consortium_certificate"||/certificate-landscape/i.test(String(doc?.html_content||""))||String(doc?.metadata?.template||"")==="consortium_certificate"}
 function mergeDocumentTemplate(html,doc){
  const fields=docMergeFields(doc);
  return String(html||"").replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi,(m,k)=>Object.prototype.hasOwnProperty.call(fields,k)?String(fields[k]):m);
@@ -611,6 +616,10 @@ function documentBodyHtml(doc){
    return `<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`;
  }
  const body=doc.html_content?mergeDocumentTemplate(doc.html_content,doc):`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
+ const certificate=isCertificateDocument(doc);
+ if(certificate){
+   return `<div class="doc-sheet certificate-sheet"><div class="certificate-topbrand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"><span>OFFICIAL ENROLLMENT CERTIFICATE</span></div><div class="doc-rendered-content certificate-rendered-content">${body}</div></div>`;
+ }
  return `<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`;
 }
 
@@ -634,18 +643,23 @@ function ensureDocumentViewer(){
 }
 
 function documentViewerSrcdoc(doc){
- const body=documentBodyHtml(doc);
+ const body=documentBodyHtml(doc),certificate=isCertificateDocument(doc);
  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
- *{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#183653}body{padding:24px}img{max-width:100%!important;height:auto!important}.doc-sheet{width:min(760px,100%);margin:0 auto;background:#fff;padding:38px 42px;box-sizing:border-box;color:#183653;font-size:14px;line-height:1.55;box-shadow:0 2px 12px rgba(16,47,85,.08)}.doc-sheet h1{font-size:26px;line-height:1.2;color:#102f55;margin:14px 0 20px}.doc-brand{background:#102f55;margin:-38px -42px 26px;padding:20px 28px}.doc-brand img{display:block;max-width:210px!important;max-height:58px!important;object-fit:contain}.doc-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}.doc-meta-grid>div{border:1px solid #dce5ef;border-radius:9px;padding:10px 12px}.doc-meta-grid span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7f93;margin-bottom:4px}.doc-meta-grid strong{color:#102f55}.doc-rendered-content{overflow-wrap:anywhere}.doc-rendered-content table{max-width:100%!important}.doc-rendered-content img{max-width:100%!important;height:auto!important}.doc-legal{margin-top:28px;padding-top:16px;border-top:1px solid #dce5ef;font-size:11px;color:#708197}@media(max-width:700px){body{padding:10px}.doc-sheet{padding:24px 20px}.doc-brand{margin:-24px -20px 20px;padding:18px 20px}.doc-meta-grid{grid-template-columns:1fr}}
- </style></head><body>${body}</body></html>`;
+ *{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#183653}body{padding:24px}img{max-width:100%!important;height:auto!important}.doc-sheet{width:min(760px,100%);margin:0 auto;background:#fff;padding:38px 42px;box-sizing:border-box;color:#183653;font-size:14px;line-height:1.55;box-shadow:0 2px 12px rgba(16,47,85,.08)}.doc-sheet h1{font-size:26px;line-height:1.2;color:#102f55;margin:14px 0 20px}.doc-brand{background:#102f55;margin:-38px -42px 26px;padding:20px 28px}.doc-brand img{display:block;max-width:210px!important;max-height:58px!important;object-fit:contain}.doc-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}.doc-meta-grid>div{border:1px solid #dce5ef;border-radius:9px;padding:10px 12px}.doc-meta-grid span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7f93;margin-bottom:4px}.doc-meta-grid strong{color:#102f55}.doc-rendered-content{overflow-wrap:anywhere}.doc-rendered-content table{max-width:100%!important}.doc-rendered-content img{max-width:100%!important;height:auto!important}.doc-legal{margin-top:28px;padding-top:16px;border-top:1px solid #dce5ef;font-size:11px;color:#708197}
+ .certificate-sheet{width:1056px;max-width:1056px;min-height:816px;padding:36px 44px;box-shadow:0 3px 16px rgba(16,47,85,.12)}.certificate-topbrand{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #24467f;padding-bottom:12px;margin-bottom:18px}.certificate-topbrand img{width:190px!important;max-height:54px!important;object-fit:contain;object-position:left center}.certificate-topbrand span{font-size:10px;font-weight:900;letter-spacing:.13em;color:#f47b20}.certificate-landscape{height:670px;border:8px double #24467f;padding:10px;background:linear-gradient(135deg,#fff 0%,#fbfcfe 55%,#f4f8fc 100%)}.certificate-inner{height:100%;border:1px solid #cfdae8;padding:28px 58px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}.certificate-kicker{font-size:11px;letter-spacing:.22em;font-weight:900;color:#f47b20;margin-bottom:8px}.certificate-title{font-family:Georgia,'Times New Roman',serif;font-size:50px;line-height:1;color:#24467f;font-weight:700;letter-spacing:.06em}.certificate-subtitle{font-family:Georgia,'Times New Roman',serif;font-size:24px;color:#24467f;font-weight:700;letter-spacing:.19em;margin-top:8px}.certificate-rule{width:210px;height:3px;background:#f47b20;margin:18px auto 14px}.certificate-reg{margin:0;color:#64758a;font-size:14px}.certificate-program{margin:6px 0 18px;color:#26384d;font-size:16px;font-weight:800}.certificate-presented{margin:0 0 4px;font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#6b7d91;font-size:15px}.certificate-company{font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.15;color:#173f75;font-weight:700;margin:2px 0 4px}.certificate-usdot{font-size:17px;color:#24467f;font-weight:800;margin-bottom:16px}.certificate-copy{max-width:760px;margin:0 auto 18px;line-height:1.6;color:#40536a;font-size:14px}.certificate-dates{display:flex;justify-content:center;gap:80px;margin:4px 0 20px}.certificate-dates div{min-width:180px;border-top:1px solid #aebed0;padding-top:7px}.certificate-dates span,.certificate-issued span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#7b8ca0}.certificate-dates strong{display:block;margin-top:3px;color:#173f75;font-size:14px}.certificate-issued{width:72%;margin:4px auto 0;text-align:center;border-top:1px solid #7f93ab;padding-top:8px}.certificate-issued strong{display:block;color:#173f75;font-size:14px}.certificate-footerline{position:absolute;bottom:12px;left:0;right:0;font-size:9px;color:#8090a3;letter-spacing:.04em}
+ @media(max-width:1120px){body{overflow:auto}.certificate-sheet{transform-origin:top left;transform:scale(.82);margin-bottom:-140px}}@media(max-width:900px){.certificate-sheet{transform:scale(.66);margin-bottom:-270px}}@media(max-width:700px){body{padding:10px}.doc-sheet:not(.certificate-sheet){padding:24px 20px}.doc-brand{margin:-24px -20px 20px;padding:18px 20px}.doc-meta-grid{grid-template-columns:1fr}.certificate-sheet{transform:scale(.48);margin-left:0;margin-bottom:-420px}}
+ </style></head><body class="${certificate?'certificate-document':''}">${body}</body></html>`;
 }
 
 async function downloadDocumentPdf(doc){
- const wrap=document.createElement("div");wrap.className="pdf-export-wrap";wrap.innerHTML=documentBodyHtml(doc);document.body.appendChild(wrap);
+ const certificate=isCertificateDocument(doc),wrap=document.createElement("div");wrap.className="pdf-export-wrap"+(certificate?" certificate-pdf-export":"");wrap.innerHTML=documentBodyHtml(doc);document.body.appendChild(wrap);
  const safe=(doc.title||doc.display_title||doc.file_name||"document").replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()+".pdf";
  try{
    if(typeof html2pdf!=="function")throw new Error("PDF generator is unavailable. Refresh this page and try again.");
-   await html2pdf().set({margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}}).from(wrap.firstElementChild).save();
+   const opt=certificate
+     ?{margin:[0.2,0.2,0.2,0.2],filename:safe,image:{type:"jpeg",quality:.99},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",width:1056,height:816,windowWidth:1056,windowHeight:816},jsPDF:{unit:"in",format:"letter",orientation:"landscape"}}
+     :{margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}};
+   await html2pdf().set(opt).from(wrap.firstElementChild).save();
  }finally{wrap.remove()}
 }
 
