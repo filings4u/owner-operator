@@ -571,13 +571,42 @@ async function loadDocuments(){
  bindDocumentActions();
 }
 
+const WORKFORCE_DOT_WHITE_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot2.png";
+function docMergeFields(doc){
+ const ctx=state.context||{},owner=ctx.owner_operator||{},employer=ctx.employer||{},org=ctx.organization||{},meta=owner.metadata||{};
+ const company=doc.recipient_name||doc.company_name||meta.company_name||owner.legal_name||employer.legal_name||org.legal_name||"—";
+ const line1=meta.address_line1||employer.address_line1||org.address_line1||"";
+ const line2=meta.address_line2||employer.address_line2||org.address_line2||"";
+ const city=meta.city||employer.city||org.city||"";
+ const region=meta.state||owner.state||employer.state||org.state_region||"";
+ const postal=meta.postal_code||employer.postal_code||org.postal_code||"";
+ const locality=[city,region].filter(Boolean).join(", ")+(postal?` ${postal}`:"");
+ const address=[line1,line2,locality].filter(Boolean).join("<br>")||"—";
+ const rawDate=doc.pushed_at||doc.updated_at||doc.signed_at||doc.uploaded_at||new Date().toISOString();
+ const d=new Date(rawDate),date=Number.isNaN(d.getTime())?String(rawDate):d.toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+ return {
+   date,company_name:company,company,usdot:owner.dot_number||employer.dot_number||"—",dot_number:owner.dot_number||employer.dot_number||"—",
+   mc_number:owner.mc_number||employer.mc_number||"—",address,address_line1:line1||"—",address_line2:line2||"",city:city||"—",state:region||"—",zip:postal||"—",postal_code:postal||"—",
+   email:owner.email||org.primary_email||"—",phone:owner.phone||employer.phone||org.phone||"—",owner_name:[meta.owner_first_name,meta.owner_last_name].filter(Boolean).join(" ")||"—"
+ };
+}
+function mergeDocumentTemplate(html,doc){
+ const fields=docMergeFields(doc);
+ return String(html||"").replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi,(m,k)=>Object.prototype.hasOwnProperty.call(fields,k)?String(fields[k]):m);
+}
+function documentFooterText(doc){
+ const fields=docMergeFields(doc);
+ const company=fields.company_name&&fields.company_name!=="—"?fields.company_name:"Owner-Operator";
+ const name=doc.title||doc.display_title||doc.file_name||((doc.source_type==="consortium_agreement"||doc.document_type==="consortium_agreement")?"Owner-Operator Consortium Agreement":"DOT Document");
+ return `Workforce DOT, LLC · ${company} - ${name}`;
+}
 function documentBodyHtml(doc){
  if(doc.source_type==="consortium_agreement"||doc.document_type==="consortium_agreement"){
    const snap=doc.agreement_snapshot||{};
-   return `<div class="doc-sheet"><div class="doc-brand"><img src="/images/logo.png" alt="Workforce DOT"></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="doc-legal">Workforce DOT, LLC · A subsidiary of screenings4u, LLC</div></div>`;
+   return `<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`;
  }
- const body=doc.html_content||`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
- return `<div class="doc-sheet"><div class="doc-brand"><img src="/images/logo.png" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">Workforce DOT, LLC · A subsidiary of screenings4u, LLC</div></div>`;
+ const body=doc.html_content?mergeDocumentTemplate(doc.html_content,doc):`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
+ return `<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`;
 }
 
 async function getDocumentDetail(id,source){
