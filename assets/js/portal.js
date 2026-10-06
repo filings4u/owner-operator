@@ -578,6 +578,7 @@ async function loadDocuments(){
 
 const WORKFORCE_DOT_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot.png";
 const WORKFORCE_DOT_WHITE_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot2.png";
+const WORKFORCE_DOT_REGULAR_LOGO="https://elpbnytpciqnbexiaebp.supabase.co/storage/v1/object/public/enterprise_branding/workforce-dot.png";
 function docMergeFields(doc){
  const ctx=state.context||{},owner=ctx.owner_operator||{},employer=ctx.employer||{},org=ctx.organization||{},meta=owner.metadata||{},dm=doc.metadata||{};
  const company=doc.recipient_name||doc.company_name||meta.company_name||owner.legal_name||employer.legal_name||org.legal_name||"—";

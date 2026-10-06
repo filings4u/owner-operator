@@ -457,3 +457,22 @@ body.doc-modal-open{overflow:hidden}
 .professional-certificate .certificate-footerline{position:absolute;left:0;right:0;bottom:9px;font-size:8.5px;color:#7f90a3;letter-spacing:.04em}
 .pdf-export-wrap.certificate-pdf-export{width:1056px!important;height:816px!important;overflow:hidden!important;background:#fff!important}
 .pdf-export-wrap.certificate-pdf-export .professional-certificate{box-shadow:none!important;margin:0!important;transform:none!important}
+
+/* Formal DOT consortium compliance letter */
+.compliance-letter{position:relative;color:#21354d;font-size:14px;line-height:1.6}
+.compliance-letter .letter-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;padding-bottom:18px;border-bottom:2px solid #173f75;margin-bottom:22px}
+.compliance-letter .letter-title-row h1{margin:5px 0 0!important;font-size:30px!important;line-height:1.15!important;color:#102f55!important}
+.compliance-letter .letter-kicker{font-size:10px;font-weight:900;letter-spacing:.14em;color:#f47b20}
+.compliance-letter .letter-doc-mark{flex:0 0 auto;border:1px solid #bfd0e2;background:#f5f8fc;border-radius:7px;padding:8px 11px;font-size:9px;font-weight:900;letter-spacing:.11em;color:#24467f}
+.compliance-letter .letter-recipient-card{border-left:4px solid #f47b20;background:#f7fafe;padding:14px 16px;margin-bottom:22px}
+.compliance-letter .letter-recipient-card span{display:block;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#6f8195}
+.compliance-letter .letter-recipient-card strong{display:block;margin:3px 0 2px;font-size:18px;color:#102f55}
+.compliance-letter .letter-verification-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0}
+.compliance-letter .letter-verification-grid>div{border:1px solid #d6e0eb;border-radius:7px;padding:11px 12px;background:#fff}
+.compliance-letter .letter-verification-grid span{display:block;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#74869a;margin-bottom:3px}
+.compliance-letter .letter-verification-grid strong{display:block;color:#173f75;font-size:12px;line-height:1.35}
+.compliance-letter .letter-issued-box{margin-top:24px;padding:14px 16px;border:1px solid #cbd8e6;background:#fbfcfe}
+.compliance-letter .letter-issued-box strong{display:block;color:#102f55;font-size:13px}
+.compliance-letter .letter-issued-box span{display:block;color:#66798e;font-size:11px;margin-top:2px}
+.compliance-letter .letter-verification-note{margin-top:16px;padding-top:12px;border-top:1px solid #dce5ef;font-size:10px;color:#6d7f92;letter-spacing:.03em}
+@media(max-width:700px){.compliance-letter .letter-title-row{flex-direction:column}.compliance-letter .letter-verification-grid{grid-template-columns:1fr}}
