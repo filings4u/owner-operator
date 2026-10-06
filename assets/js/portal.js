@@ -675,17 +675,44 @@ function ensureHtml2Pdf(){
  return html2pdfLoadPromise;
 }
 
+async function waitForPdfFrame(frame){
+ await new Promise((resolve,reject)=>{const done=()=>resolve();if(frame.contentDocument?.readyState==='complete')return done();frame.addEventListener('load',done,{once:true});setTimeout(()=>reject(new Error('Document renderer timed out.')),10000)});
+ const doc=frame.contentDocument;if(!doc)throw new Error('Document renderer failed to initialize.');
+ try{if(doc.fonts?.ready)await doc.fonts.ready}catch{}
+ const images=[...doc.images];
+ await Promise.all(images.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,5000)})));
+ await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ return doc;
+}
+
+function pdfRenderSrcdoc(doc){
+ const certificate=isCertificateDocument(doc),body=documentBodyHtml(doc);
+ return `<!doctype html><html><head><meta charset="utf-8"><base href="${location.href}"><link rel="stylesheet" href="assets/css/portal.css"><style>
+ html,body{margin:0!important;padding:0!important;background:#fff!important;min-width:${certificate?'1056px':'816px'}!important}
+ body{font-family:Arial,Helvetica,sans-serif!important;color:#183653!important}
+ .doc-sheet{margin:0!important;box-shadow:none!important}
+ .professional-certificate,.certificate-sheet{transform:none!important;margin:0!important;box-shadow:none!important}
+ .pdf-export-wrap{position:static!important;left:auto!important;top:auto!important;z-index:auto!important}
+ @media(max-width:2000px){.certificate-sheet{transform:none!important;margin:0!important}}
+ </style></head><body>${body}</body></html>`;
+}
+
 async function downloadDocumentPdf(doc){
  await ensureHtml2Pdf();
- const certificate=isCertificateDocument(doc),wrap=document.createElement("div");wrap.className="pdf-export-wrap"+(certificate?" certificate-pdf-export":"");wrap.innerHTML=documentBodyHtml(doc);document.body.appendChild(wrap);
- const safe=(doc.title||doc.display_title||doc.file_name||"document").replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()+".pdf";
+ const certificate=isCertificateDocument(doc),frame=document.createElement('iframe');
+ frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
+ frame.style.cssText='position:fixed;left:0;top:0;width:1400px;height:1200px;opacity:0.001;pointer-events:none;border:0;z-index:-2147483000;';
+ frame.srcdoc=pdfRenderSrcdoc(doc);document.body.appendChild(frame);
+ const safe=(doc.title||doc.display_title||doc.file_name||'document').replace(/[^a-z0-9-_]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()+'.pdf';
  try{
+   const renderDoc=await waitForPdfFrame(frame);
+   const pdfSource=certificate?(renderDoc.querySelector('.professional-certificate')||renderDoc.querySelector('.certificate-sheet')):renderDoc.querySelector('.doc-sheet');
+   if(!pdfSource)throw new Error('Document content could not be prepared for PDF export.');
    const opt=certificate
-     ?{margin:0,filename:safe,image:{type:"jpeg",quality:.99},pagebreak:{mode:["avoid-all"]},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",width:1056,height:816,windowWidth:1056,windowHeight:816,scrollX:0,scrollY:0},jsPDF:{unit:"px",format:[1056,816],orientation:"landscape",hotfixes:["px_scaling"]}}
-     :{margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}};
-   const pdfSource=certificate?(wrap.querySelector(".certificate-sheet")||wrap.firstElementChild):wrap.firstElementChild;
+     ?{margin:0,filename:safe,image:{type:'jpeg',quality:.99},pagebreak:{mode:['avoid-all']},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:1400,windowHeight:1200},jsPDF:{unit:'px',format:[1056,816],orientation:'landscape',hotfixes:['px_scaling']}}
+     :{margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:1000,windowHeight:1400},jsPDF:{unit:'in',format:'letter',orientation:'portrait'}};
    await html2pdf().set(opt).from(pdfSource).save();
- }finally{wrap.remove()}
+ }finally{frame.remove()}
 }
 
 function bindDocumentActions(){
