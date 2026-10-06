@@ -586,14 +586,24 @@ async function getDocumentDetail(id,source){
 }
 
 function ensureDocumentViewer(){
- let el=document.getElementById("document-viewer-modal");
+ let el=document.getElementById("document-viewer-dialog");
  if(el)return el;
- el=document.createElement("div");
- el.id="document-viewer-modal";el.className="doc-modal";el.hidden=true;
- el.innerHTML=`<div class="doc-modal-backdrop" data-close-doc></div><div class="doc-modal-panel" role="dialog" aria-modal="true" aria-label="Document viewer"><div class="doc-modal-head"><strong id="doc-modal-title">Document</strong><div class="doc-actions"><button type="button" class="btn btn-primary" id="doc-modal-download">Download PDF</button><button type="button" class="btn btn-secondary" data-close-doc>Close</button></div></div><div class="doc-modal-body" id="doc-modal-body"></div></div>`;
+ el=document.createElement("dialog");
+ el.id="document-viewer-dialog";el.className="doc-dialog";
+ el.innerHTML=`<div class="doc-dialog-panel" role="document"><div class="doc-dialog-head"><strong id="doc-modal-title">Document</strong><div class="doc-actions"><button type="button" class="btn btn-primary" id="doc-modal-download">Download PDF</button><button type="button" class="btn btn-secondary" data-close-doc>Close</button></div></div><div class="doc-dialog-body"><iframe id="doc-view-frame" title="Document viewer" sandbox="allow-same-origin"></iframe></div></div>`;
  document.body.appendChild(el);
- el.querySelectorAll("[data-close-doc]").forEach(b=>b.addEventListener("click",()=>{el.hidden=true;document.body.classList.remove("doc-modal-open")}));
+ const close=()=>{try{el.close()}catch{} document.body.classList.remove("doc-modal-open")};
+ el.querySelector("[data-close-doc]")?.addEventListener("click",close);
+ el.addEventListener("click",e=>{if(e.target===el)close()});
+ el.addEventListener("cancel",e=>{e.preventDefault();close()});
  return el;
+}
+
+function documentViewerSrcdoc(doc){
+ const body=documentBodyHtml(doc);
+ return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+ *{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#183653}body{padding:24px}img{max-width:100%!important;height:auto!important}.doc-sheet{width:min(760px,100%);margin:0 auto;background:#fff;padding:38px 42px;box-sizing:border-box;color:#183653;font-size:14px;line-height:1.55;box-shadow:0 2px 12px rgba(16,47,85,.08)}.doc-sheet h1{font-size:26px;line-height:1.2;color:#102f55;margin:14px 0 20px}.doc-brand{background:#102f55;margin:-38px -42px 26px;padding:20px 28px}.doc-brand img{display:block;max-width:210px!important;max-height:58px!important;object-fit:contain}.doc-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:20px}.doc-meta-grid>div{border:1px solid #dce5ef;border-radius:9px;padding:10px 12px}.doc-meta-grid span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7f93;margin-bottom:4px}.doc-meta-grid strong{color:#102f55}.doc-rendered-content{overflow-wrap:anywhere}.doc-rendered-content table{max-width:100%!important}.doc-rendered-content img{max-width:100%!important;height:auto!important}.doc-legal{margin-top:28px;padding-top:16px;border-top:1px solid #dce5ef;font-size:11px;color:#708197}@media(max-width:700px){body{padding:10px}.doc-sheet{padding:24px 20px}.doc-brand{margin:-24px -20px 20px;padding:18px 20px}.doc-meta-grid{grid-template-columns:1fr}}
+ </style></head><body>${body}</body></html>`;
 }
 
 async function downloadDocumentPdf(doc){
@@ -607,7 +617,7 @@ async function downloadDocumentPdf(doc){
 
 function bindDocumentActions(){
  document.querySelectorAll(".doc-view-btn").forEach(btn=>btn.addEventListener("click",async()=>{
-   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);const modal=ensureDocumentViewer();modal.querySelector("#doc-modal-title").textContent=doc.title||doc.display_title||doc.file_name||"Document";modal.querySelector("#doc-modal-body").innerHTML=documentBodyHtml(doc);const dl=modal.querySelector("#doc-modal-download");dl.onclick=()=>downloadDocumentPdf(doc);modal.hidden=false;document.body.classList.add("doc-modal-open")}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
+   try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);const modal=ensureDocumentViewer();modal.querySelector("#doc-modal-title").textContent=doc.title||doc.display_title||doc.file_name||"Document";const frame=modal.querySelector("#doc-view-frame");frame.srcdoc=documentViewerSrcdoc(doc);const dl=modal.querySelector("#doc-modal-download");dl.onclick=()=>downloadDocumentPdf(doc);document.body.classList.add("doc-modal-open");if(typeof modal.showModal==="function")modal.showModal();else modal.setAttribute("open","")}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
  }));
  document.querySelectorAll(".doc-download-btn").forEach(btn=>btn.addEventListener("click",async()=>{
    try{btn.disabled=true;const doc=await getDocumentDetail(btn.dataset.id,btn.dataset.source);await downloadDocumentPdf(doc)}catch(e){window.S4UDialog?.alert?window.S4UDialog.alert(e.message||String(e)):alert(e.message||e)}finally{btn.disabled=false}
