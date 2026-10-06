@@ -425,3 +425,35 @@ body.doc-modal-open{overflow:hidden}
 .pdf-export-wrap.certificate-pdf-export{width:1056px;height:816px;background:#fff}
 .pdf-export-wrap.certificate-pdf-export .certificate-sheet{width:1056px;max-width:1056px;min-height:816px;height:816px;box-shadow:none}
 @media(min-width:1100px){.doc-dialog{width:min(1220px,96vw)}}
+
+
+/* Professional DOT certificate renderer */
+.professional-certificate{position:relative;width:1056px!important;max-width:1056px!important;height:816px!important;min-height:816px!important;padding:34px 42px!important;background:#fff!important;overflow:hidden!important;box-shadow:0 3px 16px rgba(16,47,85,.12)}
+.professional-certificate .certificate-topbrand{position:relative;z-index:3;margin:0 0 14px;padding:0 0 12px;border-bottom:3px solid #24467f;display:flex;align-items:center;justify-content:space-between}
+.professional-certificate .certificate-topbrand img{width:190px!important;max-height:48px!important;object-fit:contain;object-position:left center}
+.professional-certificate .certificate-topbrand span{font-size:10px;font-weight:900;letter-spacing:.16em;color:#f47b20}
+.certificate-frame{position:relative;z-index:2;height:690px;border:6px double #24467f;padding:10px;background:#fff}
+.professional-certificate .certificate-inner{height:100%;border:1px solid #cbd8e7;padding:28px 54px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;background:rgba(255,255,255,.94)}
+.certificate-watermark{position:absolute;z-index:1;inset:155px 160px 125px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.045}
+.certificate-watermark img{display:block;width:100%;max-width:690px;max-height:370px;object-fit:contain;filter:grayscale(100%)}
+.professional-certificate .certificate-title{font-family:Georgia,'Times New Roman',serif;font-size:52px;line-height:1;color:#24467f;font-weight:700;letter-spacing:.075em;margin:0}
+.professional-certificate .certificate-subtitle{font-family:Georgia,'Times New Roman',serif;font-size:24px;color:#24467f;font-weight:700;letter-spacing:.2em;margin-top:8px}
+.professional-certificate .certificate-kicker{font-size:10px;letter-spacing:.24em;font-weight:900;color:#f47b20;margin-bottom:10px}
+.professional-certificate .certificate-rule{width:205px;height:3px;background:#f47b20;margin:17px auto 14px}
+.professional-certificate .certificate-reg{color:#64758a;font-size:13px}
+.professional-certificate .certificate-program{margin:7px 0 16px;color:#26384d;font-size:16px;font-weight:800}
+.professional-certificate .certificate-presented{font-family:Georgia,'Times New Roman',serif;font-style:italic;color:#6b7d91;font-size:15px;margin-bottom:4px}
+.professional-certificate .certificate-company{font-family:Georgia,'Times New Roman',serif;font-size:35px;line-height:1.12;color:#173f75;font-weight:700;margin:1px 0 3px}
+.professional-certificate .certificate-usdot{font-size:17px;color:#24467f;font-weight:900;margin-bottom:15px}
+.professional-certificate .certificate-copy{max-width:770px;margin:0 auto 17px;line-height:1.55;color:#40536a;font-size:13px}
+.professional-certificate .certificate-dates{display:flex;justify-content:center;gap:92px;margin:4px 0 12px}
+.professional-certificate .certificate-dates>div{min-width:180px;border-top:1px solid #9eb1c8;padding-top:7px}
+.professional-certificate .certificate-dates span,.professional-certificate .certificate-issued span,.professional-certificate .certificate-tracking span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#7b8ca0}
+.professional-certificate .certificate-dates strong{display:block;margin-top:3px;color:#173f75;font-size:14px}
+.professional-certificate .certificate-tracking{margin:0 0 10px;text-align:center}
+.professional-certificate .certificate-tracking strong{display:block;margin-top:3px;color:#173f75;font-size:13px;letter-spacing:.04em}
+.professional-certificate .certificate-issued{width:68%;margin:0 auto;text-align:center;border-top:1px solid #8fa4bd;padding-top:7px}
+.professional-certificate .certificate-issued strong{display:block;color:#173f75;font-size:13px}
+.professional-certificate .certificate-footerline{position:absolute;left:0;right:0;bottom:9px;font-size:8.5px;color:#7f90a3;letter-spacing:.04em}
+.pdf-export-wrap.certificate-pdf-export{width:1056px!important;height:816px!important;overflow:hidden!important;background:#fff!important}
+.pdf-export-wrap.certificate-pdf-export .professional-certificate{box-shadow:none!important;margin:0!important;transform:none!important}

@@ -466,7 +466,7 @@ async function loadClearinghouseSetup(){
 async function loadDashboard(){
  const d=await owner("overview");
  const ownerObj=d.owner||{};
- const testing=d.testing||[], compliance=d.compliance||[], docs=d.document_packets||[], programs=d.programs||[], drivers=d.drivers||[];
+ const testing=d.testing||[], compliance=d.compliance||[], docs=(d.document_packets||d.documents||[]).filter(x=>String(x.document_status||x.status||"published").toLowerCase()==="published"), programs=d.programs||[], drivers=d.drivers||[];
  const activeCons=(d.consortium_enrollments||[]).filter(x=>["active","eligible"].includes(String(x.status||x.eligibility_status).toLowerCase())).length;
  const deadlineCell=x=>{
    if(!x.collection_deadline)return '<span class="deadline-empty">Not set</span>';
@@ -568,7 +568,7 @@ async function loadRTD(){
 }
 
 async function loadDocuments(){
- const d=await owner("documents"), rows=d.documents||d.packets||d.document_packets||[];
+ const d=await owner("documents"), rows=(d.documents||d.packets||d.document_packets||[]).filter(x=>{const s=String(x.document_status||x.status||"published").toLowerCase();return s!=="draft"&&s!=="archived"});
  const docStatus=(x)=>x.document_status||x.status||"published";
  const title=(x)=>x.display_title||x.title||x.name||x.file_name||"Document";
  document.getElementById("page-content").innerHTML=pageHead("DOCUMENTS","Program documents","View and download onboarding documents and records published to your Owner-Operator portal.")+
@@ -620,16 +620,18 @@ function documentFooterText(doc){
 }
 function documentBodyHtml(doc){
  if(doc.source_type==="consortium_agreement"||doc.document_type==="consortium_agreement"){
-   const snap=doc.agreement_snapshot||{};
-   const inner=`<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`;
-   return withSecurityWrapper(doc,inner,false);
+   const snap=doc.agreement_snapshot||{},track=trackingNumberValue(doc);
+   const inner=`<div class="doc-sheet"><div class="document-watermark" aria-hidden="true"><img src="${WORKFORCE_DOT_LOGO}" alt=""></div><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><div class="document-security-top"><span>Tracking Number: ${esc(track)}</span><span>Executed: ${esc(fmt(doc.signed_at))}</span></div><h1>Owner-Operator Consortium Agreement</h1><div class="doc-meta-grid"><div><span>Company</span><strong>${esc(doc.company_name||snap.company_name||"—")}</strong></div><div><span>Status</span><strong>${esc(doc.status||"accepted")}</strong></div><div><span>Signed</span><strong>${fmt(doc.signed_at)}</strong></div><div><span>Effective</span><strong>${fmt(doc.effective_date)}</strong></div><div><span>Valid until</span><strong>${fmt(doc.expires_on)}</strong></div><div><span>Plan</span><strong>${esc(doc.plan_name||doc.plan_code||"—")}</strong></div></div><hr><p><strong>Authorized signer:</strong> ${esc(doc.authorized_name||"—")}${doc.authorized_title?` · ${esc(doc.authorized_title)}`:""}</p><p><strong>Electronic signature:</strong> ${esc(doc.electronic_signature||"—")}</p><p><strong>Consortium participation:</strong> ${esc(doc.initials_consortium||"—")}</p><p><strong>Pre-employment testing:</strong> ${esc(doc.initials_preemployment||"—")}</p><p><strong>Quarterly list acknowledgement:</strong> ${esc(doc.initials_quarterly_list||"—")}</p><p><strong>Roster accuracy acknowledgement:</strong> ${esc(doc.initials_roster_accuracy||"—")}</p><p><strong>Testing duties acknowledgement:</strong> ${esc(doc.initials_testing_duties||"—")}</p><div class="document-security-bottom">${esc(securityFooterText(doc))}</div></div>`;
+   return inner;
  }
- const body=doc.html_content?mergeDocumentTemplate(doc.html_content,doc):`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
  const certificate=isCertificateDocument(doc);
  if(certificate){
-   return withSecurityWrapper(doc,`<div class="doc-sheet certificate-sheet"><div class="certificate-topbrand"><img src="${WORKFORCE_DOT_LOGO}" alt="Workforce DOT"><span>OFFICIAL ENROLLMENT CERTIFICATE</span></div><div class="doc-rendered-content certificate-rendered-content">${body}</div></div>`,true);
+   const f=docMergeFields(doc),track=trackingNumberValue(doc),title=doc.title||doc.display_title||"Consortium Enrollment Certificate";
+   return `<div class="doc-sheet certificate-sheet professional-certificate"><div class="certificate-watermark" aria-hidden="true"><img src="${WORKFORCE_DOT_LOGO}" alt=""></div><div class="certificate-topbrand"><img src="${WORKFORCE_DOT_LOGO}" alt="Workforce DOT"><span>OFFICIAL DOT ENROLLMENT CERTIFICATE</span></div><div class="certificate-frame"><div class="certificate-inner"><div class="certificate-kicker">WORKFORCE DOT · CONSORTIUM ENROLLMENT</div><div class="certificate-title">CERTIFICATE</div><div class="certificate-subtitle">OF ENROLLMENT</div><div class="certificate-rule"></div><div class="certificate-reg">Department of Transportation · 49 CFR Part 40</div><div class="certificate-program">Random Drug &amp; Alcohol Testing Consortium</div><div class="certificate-presented">This certificate is presented to</div><div class="certificate-company">${esc(f.company_name)}</div><div class="certificate-usdot">USDOT #${esc(f.usdot)}</div><p class="certificate-copy">Workforce DOT, LLC hereby certifies that the above-named Company has enrolled in our consortium-administered random drug/alcohol testing program as mandated by the DOT 49 CFR Part 40.</p><div class="certificate-dates"><div><span>Effective Date</span><strong>${esc(f.effective_date)}</strong></div><div><span>Valid Through</span><strong>${esc(f.expiration_date)}</strong></div></div><div class="certificate-tracking"><span>Tracking Number</span><strong>${esc(track)}</strong></div><div class="certificate-issued"><strong>Issued by Workforce DOT, LLC</strong><span>Consortium / Third-Party Administrator</span></div><div class="certificate-footerline">${esc(`Workforce DOT, LLC · ${track} - ${title}`)}</div></div></div></div>`;
  }
- return withSecurityWrapper(doc,`<div class="doc-sheet"><div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div><h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div><div class="doc-legal">${esc(documentFooterText(doc))}</div></div>`,false);
+ const body=doc.html_content?mergeDocumentTemplate(doc.html_content,doc):`<pre>${esc(doc.plain_text||"Document content is not available for preview.")}</pre>`;
+ const trackable=isTrackableDocument(doc),watermark=trackable?`<div class="document-watermark" aria-hidden="true"><img src="${WORKFORCE_DOT_LOGO}" alt=""></div>`:"",security=trackable?`<div class="document-security-top"><span>Tracking Number: ${esc(trackingNumberValue(doc))}</span><span>Issued: ${esc(fmt(doc.pushed_at||doc.updated_at||doc.uploaded_at))}</span></div>`:"",securityBottom=trackable?`<div class="document-security-bottom">${esc(securityFooterText(doc))}</div>`:`<div class="doc-legal">${esc(documentFooterText(doc))}</div>`;
+ return `<div class="doc-sheet">${watermark}<div class="doc-brand"><img src="${WORKFORCE_DOT_WHITE_LOGO}" alt="Workforce DOT"></div>${security}<h1>${esc(doc.title||doc.file_name||"DOT Document")}</h1><div class="doc-rendered-content">${body}</div>${securityBottom}</div>`;
 }
 
 async function getDocumentDetail(id,source){
@@ -678,9 +680,10 @@ async function downloadDocumentPdf(doc){
  const safe=(doc.title||doc.display_title||doc.file_name||"document").replace(/[^a-z0-9-_]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()+".pdf";
  try{
    const opt=certificate
-     ?{margin:[0.2,0.2,0.2,0.2],filename:safe,image:{type:"jpeg",quality:.99},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",width:1056,height:816,windowWidth:1056,windowHeight:816},jsPDF:{unit:"in",format:"letter",orientation:"landscape"}}
+     ?{margin:0,filename:safe,image:{type:"jpeg",quality:.99},pagebreak:{mode:["avoid-all"]},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",width:1056,height:816,windowWidth:1056,windowHeight:816,scrollX:0,scrollY:0},jsPDF:{unit:"px",format:[1056,816],orientation:"landscape",hotfixes:["px_scaling"]}}
      :{margin:[0.45,0.45,0.55,0.45],filename:safe,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"},jsPDF:{unit:"in",format:"letter",orientation:"portrait"}};
-   await html2pdf().set(opt).from(wrap.firstElementChild).save();
+   const pdfSource=certificate?(wrap.querySelector(".certificate-sheet")||wrap.firstElementChild):wrap.firstElementChild;
+   await html2pdf().set(opt).from(pdfSource).save();
  }finally{wrap.remove()}
 }
 
